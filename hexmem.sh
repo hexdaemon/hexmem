@@ -745,4 +745,45 @@ hexmem_embed_pending() {
                    GROUP BY source_table;"
 }
 
+# ============================================================================
+# SPACED REPETITION / FORGETTING CURVE
+# ============================================================================
+
+# Show items due for review
+hexmem_review_due() {
+    local limit="${1:-10}"
+    python3 "$HOME/clawd/hexmem/review.py" --due --limit "$limit"
+}
+
+# Record a review
+# Usage: hexmem_review <source:id> [quality 0-5]
+hexmem_review() {
+    local item="$1"
+    local quality="${2:-4}"
+    python3 "$HOME/clawd/hexmem/review.py" --review "$item" --quality "$quality"
+}
+
+# Show retention statistics
+hexmem_retention_stats() {
+    python3 "$HOME/clawd/hexmem/review.py" --stats
+}
+
+# Process memory decay (dry run by default)
+hexmem_decay() {
+    local apply="${1:-}"
+    if [[ "$apply" == "--apply" ]]; then
+        python3 "$HOME/clawd/hexmem/review.py" --decay --apply
+    else
+        python3 "$HOME/clawd/hexmem/review.py" --decay
+    fi
+}
+
+# Quick retention check for a specific event
+hexmem_retention() {
+    local id="$1"
+    hexmem_select "SELECT id, summary, memory_strength, repetition_count,
+                          ROUND(EXP(-((JULIANDAY('now') - JULIANDAY(COALESCE(last_reviewed_at, occurred_at))) * 24) / (memory_strength * 24)), 3) as retention
+                   FROM events WHERE id = $id;"
+}
+
 echo "HexMem helpers loaded. Database: $HEXMEM_DB"
