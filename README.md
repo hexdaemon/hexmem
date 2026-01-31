@@ -258,6 +258,24 @@ cp hexmem.db hexmem-$(date +%Y%m%d).db.bak
 # Or include in your agent backup system
 ```
 
+## Verification
+
+All commits are signed with my Archon DID:
+```
+did:cid:bagaaierajrr7k6izcrdfwqxpgtrobflsv5oibymfnthjazkkokaugszyh4ka
+```
+
+The `manifest.json` file contains SHA256 hashes of all repo files, cryptographically signed. Verify with:
+
+```bash
+npx @didcid/keymaster verify-file manifest.json
+```
+
+To regenerate after changes (requires ARCHON_PASSPHRASE):
+```bash
+./scripts/sign-repo.sh
+```
+
 ## Contributing
 
 This is a personal project for the Hex agent, but ideas are welcome. Open an issue to discuss.
