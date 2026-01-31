@@ -130,21 +130,30 @@ hexmem_select "SELECT * FROM v_active_goals;"
 | `v_emotional_highlights` | High-salience memories |
 | `v_retrieval_priority` | Memories ranked by importance |
 
-## Integration with MoltBrain
+## Comparison with MoltBrain
 
-HexMem complements [MoltBrain](https://github.com/nhevers/MoltBrain) — they solve different problems:
+[MoltBrain](https://github.com/nhevers/MoltBrain) is a project memory system for Claude Code / OpenClaw. Here's how they differ:
 
-| MoltBrain | HexMem |
-|-----------|--------|
-| Auto-captures project context | Models agent identity |
-| Semantic search via ChromaDB | SQL queries + (planned) vectors |
-| Session lifecycle hooks | Manual + cron logging |
-| "What happened in this codebase" | "Who am I becoming" |
+| Aspect | MoltBrain | HexMem |
+|--------|-----------|--------|
+| **Purpose** | Auto-capture project context | Model agent identity |
+| **Storage** | SQLite + ChromaDB (vectors) | SQLite only (vectors planned) |
+| **Capture** | Automatic via lifecycle hooks | Manual + cron |
+| **Search** | Semantic (embeddings) | SQL queries |
+| **Identity** | None | Core feature |
+| **Philosophy** | "What happened" | "Who I am becoming" |
 
-**Recommended setup:**
-- MoltBrain for automatic observation capture
-- HexMem for identity, goals, and self-modeling
-- Bridge: Distill MoltBrain observations into HexMem lessons/events
+They're complementary — MoltBrain for automatic observation, HexMem for identity substrate.
+
+## Roadmap
+
+Features inspired by MoltBrain and planned for HexMem:
+
+- [ ] **Semantic search** via sqlite-vec or ChromaDB ([#1](https://github.com/hexdaemon/hexmem/issues/1))
+- [ ] **Session lifecycle hooks** for automatic capture ([#2](https://github.com/hexdaemon/hexmem/issues/2))
+- [ ] **Web viewer** for browsing memories ([#3](https://github.com/hexdaemon/hexmem/issues/3))
+- [ ] **Context injection** at session start
+- [ ] **MCP server** for tool-based access
 
 ## Theoretical Grounding
 
