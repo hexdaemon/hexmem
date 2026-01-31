@@ -150,7 +150,7 @@ They're complementary — MoltBrain for automatic observation, HexMem for identi
 Features inspired by MoltBrain and planned for HexMem:
 
 - [x] **Semantic search** via sqlite-vec ([#1](https://github.com/hexdaemon/hexmem/issues/1)) ✅
-- [ ] **Session lifecycle hooks** for automatic capture ([#2](https://github.com/hexdaemon/hexmem/issues/2))
+- [x] **Session lifecycle hooks** for automatic capture ([#2](https://github.com/hexdaemon/hexmem/issues/2)) ✅
 - [ ] **Web viewer** for browsing memories ([#3](https://github.com/hexdaemon/hexmem/issues/3))
 - [ ] **Context injection** at session start
 - [ ] **MCP server** for tool-based access
