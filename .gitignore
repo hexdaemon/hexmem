@@ -11,3 +11,8 @@ hexmem.db-shm
 # OS files
 .DS_Store
 Thumbs.db
+
+# Python venv and cache
+.venv/
+__pycache__/
+*.pyc

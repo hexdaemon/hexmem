@@ -689,4 +689,60 @@ hexmem_emotions() {
                    FROM emotion_vocabulary ORDER BY category, emotion;"
 }
 
+# ============================================================================
+# SEMANTIC SEARCH (requires embed.py and sqlite-vec)
+# ============================================================================
+
+export HEXMEM_VENV="${HEXMEM_VENV:-$HOME/clawd/hexmem/.venv}"
+export HEXMEM_EMBED="${HEXMEM_EMBED:-$HOME/clawd/hexmem/embed.py}"
+
+# Initialize vector tables
+hexmem_init_vec() {
+    if [[ ! -f "$HEXMEM_VENV/bin/python" ]]; then
+        echo "Error: Virtual environment not found at $HEXMEM_VENV"
+        echo "Run: cd ~/clawd/hexmem && python3 -m venv .venv && source .venv/bin/activate && pip install sqlite-vec sentence-transformers"
+        return 1
+    fi
+    "$HEXMEM_VENV/bin/python" "$HEXMEM_EMBED" --init-vec
+}
+
+# Process embedding queue
+hexmem_embed_queue() {
+    local limit="${1:-100}"
+    "$HEXMEM_VENV/bin/python" "$HEXMEM_EMBED" --process-queue --limit "$limit"
+}
+
+# Semantic search
+# Usage: hexmem_search "query" [source] [limit]
+hexmem_search() {
+    local query="$1"
+    local source="${2:-}"
+    local limit="${3:-10}"
+    
+    if [[ -z "$query" ]]; then
+        echo "Usage: hexmem_search <query> [source] [limit]"
+        echo "Sources: events, lessons, facts, entities"
+        return 1
+    fi
+    
+    local args="--search \"$query\" --limit $limit"
+    if [[ -n "$source" ]]; then
+        args="$args --source $source"
+    fi
+    
+    "$HEXMEM_VENV/bin/python" "$HEXMEM_EMBED" $args
+}
+
+# Show embedding stats
+hexmem_embed_stats() {
+    "$HEXMEM_VENV/bin/python" "$HEXMEM_EMBED" --stats
+}
+
+# Check embedding queue status
+hexmem_embed_pending() {
+    hexmem_select "SELECT source_table, COUNT(*) as pending 
+                   FROM embedding_queue WHERE status='pending' 
+                   GROUP BY source_table;"
+}
+
 echo "HexMem helpers loaded. Database: $HEXMEM_DB"
