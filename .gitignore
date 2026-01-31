@@ -1,0 +1,13 @@
+# Database file (contains personal data)
+hexmem.db
+hexmem.db-journal
+hexmem.db-wal
+hexmem.db-shm
+
+# Backup files
+*.bak
+*.backup
+
+# OS files
+.DS_Store
+Thumbs.db

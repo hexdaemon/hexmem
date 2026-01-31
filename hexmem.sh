@@ -1,0 +1,692 @@
+#!/bin/bash
+# HexMem Shell Helpers
+# Source this file: source ~/clawd/hexmem/hexmem.sh
+
+export HEXMEM_DB="${HEXMEM_DB:-$HOME/clawd/hexmem/hexmem.db}"
+
+# Raw query
+hexmem_query() {
+    sqlite3 "$HEXMEM_DB" "$@"
+}
+
+# Pretty query with headers
+hexmem_select() {
+    sqlite3 -header -column "$HEXMEM_DB" "$1"
+}
+
+# JSON output
+hexmem_json() {
+    sqlite3 -json "$HEXMEM_DB" "$1"
+}
+
+# ============================================================================
+# ENTITIES
+# ============================================================================
+
+# Add or update an entity
+# Usage: hexmem_entity <type> <name> [description]
+hexmem_entity() {
+    local etype="$1"
+    local name="$2"
+    local desc="${3:-}"
+    local canonical=$(echo "$name" | tr '[:upper:]' '[:lower:]' | tr ' ' '_')
+    
+    hexmem_query "INSERT INTO entities (entity_type, name, canonical_name, description)
+                  VALUES ('$etype', '$name', '$canonical', '$desc')
+                  ON CONFLICT(entity_type, canonical_name) 
+                  DO UPDATE SET description = COALESCE(excluded.description, description),
+                                last_seen_at = datetime('now');"
+    
+    # Return entity ID
+    hexmem_query "SELECT id FROM entities WHERE entity_type='$etype' AND canonical_name='$canonical';"
+}
+
+# Get entity ID by name
+hexmem_entity_id() {
+    local name="$1"
+    local canonical=$(echo "$name" | tr '[:upper:]' '[:lower:]' | tr ' ' '_')
+    hexmem_query "SELECT id FROM entities WHERE canonical_name='$canonical' LIMIT 1;"
+}
+
+# ============================================================================
+# FACTS
+# ============================================================================
+
+# Add a fact
+# Usage: hexmem_fact <subject> <predicate> <object> [source]
+hexmem_fact() {
+    local subject="$1"
+    local predicate="$2"
+    local object="$3"
+    local source="${4:-direct}"
+    
+    # Try to resolve subject as entity
+    local subject_id=$(hexmem_entity_id "$subject")
+    
+    if [[ -n "$subject_id" ]]; then
+        hexmem_query "INSERT INTO facts (subject_entity_id, predicate, object_text, source)
+                      VALUES ($subject_id, '$predicate', '$object', '$source');"
+    else
+        hexmem_query "INSERT INTO facts (subject_text, predicate, object_text, source)
+                      VALUES ('$subject', '$predicate', '$object', '$source');"
+    fi
+}
+
+# Get facts about a subject
+hexmem_facts_about() {
+    local subject="$1"
+    local subject_id=$(hexmem_entity_id "$subject")
+    
+    if [[ -n "$subject_id" ]]; then
+        hexmem_select "SELECT predicate, object, confidence, source FROM v_facts_readable 
+                       WHERE subject = '$subject' OR subject_entity_id = $subject_id;"
+    else
+        hexmem_select "SELECT predicate, object, confidence, source FROM v_facts_readable 
+                       WHERE subject = '$subject';"
+    fi
+}
+
+# ============================================================================
+# EVENTS
+# ============================================================================
+
+# Log an event
+# Usage: hexmem_event <type> <category> <summary> [details] [significance]
+hexmem_event() {
+    local etype="$1"
+    local category="$2"
+    local summary="$3"
+    local details="${4:-}"
+    local significance="${5:-5}"
+    
+    hexmem_query "INSERT INTO events (event_type, category, summary, details, significance)
+                  VALUES ('$etype', '$category', '$summary', '$details', $significance);"
+}
+
+# Get recent events
+hexmem_recent_events() {
+    local limit="${1:-10}"
+    local category="${2:-}"
+    
+    if [[ -n "$category" ]]; then
+        hexmem_select "SELECT occurred_at, event_type, category, summary 
+                       FROM events WHERE category='$category'
+                       ORDER BY occurred_at DESC LIMIT $limit;"
+    else
+        hexmem_select "SELECT occurred_at, event_type, category, summary 
+                       FROM events ORDER BY occurred_at DESC LIMIT $limit;"
+    fi
+}
+
+# ============================================================================
+# LESSONS
+# ============================================================================
+
+# Add a lesson
+# Usage: hexmem_lesson <domain> <lesson> [context]
+hexmem_lesson() {
+    local domain="$1"
+    local lesson="$2"
+    local context="${3:-}"
+    
+    hexmem_query "INSERT INTO lessons (domain, lesson, context)
+                  VALUES ('$domain', '$lesson', '$context');"
+}
+
+# Get lessons in a domain
+hexmem_lessons_in() {
+    local domain="$1"
+    hexmem_select "SELECT lesson, context, times_applied, confidence 
+                   FROM lessons WHERE domain='$domain' ORDER BY confidence DESC;"
+}
+
+# Mark a lesson as applied
+hexmem_lesson_applied() {
+    local lesson_id="$1"
+    hexmem_query "UPDATE lessons SET times_applied = times_applied + 1,
+                  last_applied_at = datetime('now') WHERE id = $lesson_id;"
+}
+
+# ============================================================================
+# TASKS
+# ============================================================================
+
+# Add a task
+# Usage: hexmem_task <title> [description] [priority] [due_at]
+hexmem_task() {
+    local title="$1"
+    local desc="${2:-}"
+    local priority="${3:-5}"
+    local due="${4:-}"
+    
+    if [[ -n "$due" ]]; then
+        hexmem_query "INSERT INTO tasks (title, description, priority, due_at)
+                      VALUES ('$title', '$desc', $priority, '$due');"
+    else
+        hexmem_query "INSERT INTO tasks (title, description, priority)
+                      VALUES ('$title', '$desc', $priority);"
+    fi
+}
+
+# List pending tasks
+hexmem_pending_tasks() {
+    hexmem_select "SELECT id, title, priority, due_at FROM v_pending_tasks;"
+}
+
+# Complete a task
+hexmem_complete_task() {
+    local task_id="$1"
+    hexmem_query "UPDATE tasks SET status='done', completed_at=datetime('now') 
+                  WHERE id=$task_id;"
+}
+
+# ============================================================================
+# KV STORE
+# ============================================================================
+
+# Set a key-value pair
+# Usage: hexmem_set <key> <value> [namespace]
+hexmem_set() {
+    local key="$1"
+    local value="$2"
+    local namespace="${3:-default}"
+    
+    hexmem_query "INSERT INTO kv_store (key, value, namespace)
+                  VALUES ('$key', '$value', '$namespace')
+                  ON CONFLICT(key) DO UPDATE SET value=excluded.value, 
+                                                  updated_at=datetime('now');"
+}
+
+# Get a value
+hexmem_get() {
+    local key="$1"
+    hexmem_query "SELECT value FROM kv_store WHERE key='$key';"
+}
+
+# ============================================================================
+# IDENTITY
+# ============================================================================
+
+# Set identity attribute
+hexmem_identity_set() {
+    local attr="$1"
+    local value="$2"
+    local public="${3:-1}"
+    
+    hexmem_query "INSERT INTO identity (attribute, value, public)
+                  VALUES ('$attr', '$value', $public)
+                  ON CONFLICT(attribute) DO UPDATE SET value=excluded.value,
+                                                        updated_at=datetime('now');"
+}
+
+# Get identity attribute
+hexmem_identity_get() {
+    local attr="$1"
+    hexmem_query "SELECT value FROM identity WHERE attribute='$attr';"
+}
+
+# ============================================================================
+# INTERACTIONS
+# ============================================================================
+
+# Log an interaction
+# Usage: hexmem_interaction <channel> <counterparty> <summary> [sentiment]
+hexmem_interaction() {
+    local channel="$1"
+    local counterparty="$2"
+    local summary="$3"
+    local sentiment="${4:-neutral}"
+    
+    # Try to resolve counterparty as entity
+    local cp_id=$(hexmem_entity_id "$counterparty")
+    
+    if [[ -n "$cp_id" ]]; then
+        hexmem_query "INSERT INTO interactions (channel, counterparty_entity_id, summary, sentiment)
+                      VALUES ('$channel', $cp_id, '$summary', '$sentiment');"
+    else
+        hexmem_query "INSERT INTO interactions (channel, counterparty_name, summary, sentiment)
+                      VALUES ('$channel', '$counterparty', '$summary', '$sentiment');"
+    fi
+}
+
+# ============================================================================
+# CREDENTIALS
+# ============================================================================
+
+# Add/update a credential
+hexmem_credential() {
+    local name="$1"
+    local ctype="$2"
+    local service="$3"
+    local identifier="$4"
+    local env_var="${5:-}"
+    
+    hexmem_query "INSERT INTO credentials (name, credential_type, service, identifier, env_var)
+                  VALUES ('$name', '$ctype', '$service', '$identifier', '$env_var')
+                  ON CONFLICT(name) DO UPDATE SET identifier=excluded.identifier,
+                                                   last_verified_at=datetime('now'),
+                                                   updated_at=datetime('now');"
+}
+
+# ============================================================================
+# GOALS
+# ============================================================================
+
+# Add a goal
+hexmem_goal() {
+    local name="$1"
+    local description="$2"
+    local gtype="${3:-project}"
+    local priority="${4:-50}"
+    
+    hexmem_query "INSERT INTO goals (name, description, goal_type, priority)
+                  VALUES ('$name', '$description', '$gtype', $priority);"
+}
+
+# Update goal progress
+hexmem_goal_progress() {
+    local goal_id="$1"
+    local progress="$2"
+    
+    hexmem_query "UPDATE goals SET current_progress=$progress, updated_at=datetime('now')
+                  WHERE id=$goal_id;"
+}
+
+# ============================================================================
+# SELFHOOD STRUCTURES (Migration 002)
+# ============================================================================
+
+# Add/update a self-schema
+# Usage: hexmem_schema <domain> <name> <description> [strength]
+hexmem_schema() {
+    local domain="$1"
+    local name="$2"
+    local desc="$3"
+    local strength="${4:-0.5}"
+    
+    hexmem_query "INSERT INTO self_schemas (domain, schema_name, description, strength)
+                  VALUES ('$domain', '$name', '$desc', $strength)
+                  ON CONFLICT(domain, schema_name) 
+                  DO UPDATE SET description=excluded.description, 
+                                strength=excluded.strength,
+                                last_reinforced_at=datetime('now'),
+                                updated_at=datetime('now');"
+}
+
+# Reinforce a schema (increase strength based on evidence)
+hexmem_schema_reinforce() {
+    local domain="$1"
+    local name="$2"
+    local event_id="${3:-}"
+    
+    if [[ -n "$event_id" ]]; then
+        hexmem_query "UPDATE self_schemas 
+                      SET strength = MIN(1.0, strength + 0.05),
+                          evidence = json_insert(COALESCE(evidence, '[]'), '\$[#]', $event_id),
+                          last_reinforced_at = datetime('now'),
+                          updated_at = datetime('now')
+                      WHERE domain='$domain' AND schema_name='$name';"
+    else
+        hexmem_query "UPDATE self_schemas 
+                      SET strength = MIN(1.0, strength + 0.05),
+                          last_reinforced_at = datetime('now'),
+                          updated_at = datetime('now')
+                      WHERE domain='$domain' AND schema_name='$name';"
+    fi
+}
+
+# View current self-image
+hexmem_self_image() {
+    hexmem_select "SELECT * FROM v_current_self_image LIMIT 20;"
+}
+
+# Add a narrative thread
+hexmem_narrative() {
+    local title="$1"
+    local ntype="$2"
+    local desc="$3"
+    local chapter="${4:-Beginning}"
+    
+    hexmem_query "INSERT INTO narrative_threads (title, thread_type, description, current_chapter)
+                  VALUES ('$title', '$ntype', '$desc', '$chapter');"
+}
+
+# Update narrative chapter
+hexmem_narrative_chapter() {
+    local title="$1"
+    local chapter="$2"
+    
+    hexmem_query "UPDATE narrative_threads 
+                  SET current_chapter='$chapter', updated_at=datetime('now')
+                  WHERE title='$title';"
+}
+
+# View active narratives
+hexmem_narratives() {
+    hexmem_select "SELECT * FROM v_active_narratives;"
+}
+
+# Record a meaning frame for an event
+hexmem_meaning() {
+    local event_id="$1"
+    local frame_type="$2"  # redemption, contamination, growth, stability, chaos
+    local interpretation="$3"
+    local before="${4:-}"
+    local after="${5:-}"
+    
+    hexmem_query "INSERT INTO meaning_frames (event_id, frame_type, interpretation, before_state, after_state)
+                  VALUES ($event_id, '$frame_type', '$interpretation', '$before', '$after');"
+}
+
+# Record personality self-assessment
+hexmem_personality() {
+    local o="$1"  # openness
+    local c="$2"  # conscientiousness  
+    local e="$3"  # extraversion
+    local a="$4"  # agreeableness
+    local n="$5"  # neuroticism
+    local context="${6:-routine assessment}"
+    
+    hexmem_query "INSERT INTO personality_measures (openness, conscientiousness, extraversion, agreeableness, neuroticism, context)
+                  VALUES ($o, $c, $e, $a, $n, '$context');"
+}
+
+# View personality trend
+hexmem_personality_trend() {
+    hexmem_select "SELECT * FROM v_personality_trend;"
+}
+
+# Add autobiographical knowledge
+hexmem_autobio() {
+    local category="$1"
+    local knowledge="$2"
+    local stability="${3:-emerging}"
+    
+    hexmem_query "INSERT INTO autobiographical_knowledge (category, knowledge, stability)
+                  VALUES ('$category', '$knowledge', '$stability');"
+}
+
+# View possible selves
+hexmem_future_selves() {
+    hexmem_select "SELECT * FROM v_possible_selves;"
+}
+
+# Create temporal link between past and present/future
+hexmem_link() {
+    local from_type="$1"
+    local from_desc="$2"
+    local relationship="$3"
+    local to_type="$4"
+    local to_desc="$5"
+    
+    hexmem_query "INSERT INTO temporal_links (from_type, from_description, relationship, to_type, to_description)
+                  VALUES ('$from_type', '$from_desc', '$relationship', '$to_type', '$to_desc');"
+}
+
+# ============================================================================
+# GENERATIVE MEMORY (Migration 003)
+# ============================================================================
+
+# Create a memory seed (compressed representation)
+# Usage: hexmem_seed <type> <seed_text> <emotional_gist> [themes_json]
+hexmem_seed() {
+    local stype="$1"
+    local seed="$2"
+    local gist="$3"
+    local themes="${4:-[]}"
+    
+    hexmem_query "INSERT INTO memory_seeds (seed_type, seed_text, emotional_gist, themes)
+                  VALUES ('$stype', '$seed', '$gist', '$themes');"
+    
+    echo "Seed created: $stype"
+}
+
+# Expand a seed (mark as accessed, return for regeneration)
+hexmem_expand_seed() {
+    local seed_id="$1"
+    
+    hexmem_query "UPDATE memory_seeds 
+                  SET times_expanded = times_expanded + 1,
+                      last_expanded_at = datetime('now')
+                  WHERE id = $seed_id;"
+    
+    hexmem_select "SELECT seed_type, seed_text, emotional_gist, anchor_facts, themes, resolution
+                   FROM memory_seeds WHERE id = $seed_id;"
+}
+
+# View all seeds
+hexmem_seeds() {
+    hexmem_select "SELECT id, seed_type, substr(seed_text, 1, 60) || '...' as seed_preview, 
+                          emotional_gist, times_expanded FROM memory_seeds ORDER BY created_at DESC;"
+}
+
+# Create an association between memories
+hexmem_associate() {
+    local from_type="$1"
+    local from_id="$2"
+    local to_type="$3"
+    local to_id="$4"
+    local assoc_type="$5"  # temporal, causal, thematic, emotional, entity, similarity
+    local context="${6:-}"
+    
+    hexmem_query "INSERT INTO memory_associations (from_type, from_id, to_type, to_id, association_type, context)
+                  VALUES ('$from_type', $from_id, '$to_type', $to_id, '$assoc_type', '$context')
+                  ON CONFLICT(from_type, from_id, to_type, to_id, association_type) 
+                  DO UPDATE SET strength = MIN(1.0, strength + 0.1),
+                                activation_count = activation_count + 1,
+                                last_activated_at = datetime('now');"
+}
+
+# Mark an event as accessed (for reconsolidation)
+hexmem_access_event() {
+    local event_id="$1"
+    
+    hexmem_query "UPDATE events 
+                  SET last_accessed_at = datetime('now'),
+                      access_count = access_count + 1
+                  WHERE id = $event_id;"
+}
+
+# Set event importance (affects decay)
+hexmem_importance() {
+    local event_id="$1"
+    local importance="$2"  # 0-1
+    
+    hexmem_query "UPDATE events SET importance = $importance WHERE id = $event_id;"
+}
+
+# Prime a concept (add to working activation)
+hexmem_prime() {
+    local item_type="$1"
+    local item_name="$2"
+    local source="${3:-direct}"
+    
+    hexmem_query "INSERT INTO priming_state (item_type, item_name, source, expires_at)
+                  VALUES ('$item_type', '$item_name', '$source', datetime('now', '+1 hour'));"
+}
+
+# View current priming state
+hexmem_priming() {
+    hexmem_select "SELECT * FROM v_active_priming;"
+}
+
+# View forgetting candidates
+hexmem_forgetting() {
+    hexmem_select "SELECT id, summary, days_since_access, current_strength 
+                   FROM v_forgetting_candidates LIMIT 10;"
+}
+
+# View compression candidates
+hexmem_to_compress() {
+    hexmem_select "SELECT * FROM v_compression_candidates LIMIT 10;"
+}
+
+# Compress events into a seed
+hexmem_compress_events() {
+    local seed_text="$1"
+    local gist="$2"
+    local event_ids="$3"  # comma-separated: "1,2,3"
+    
+    # Create the seed
+    local seed_id=$(hexmem_query "INSERT INTO memory_seeds (seed_type, seed_text, emotional_gist, source_events)
+                                  VALUES ('experience', '$seed_text', '$gist', '[$event_ids]')
+                                  RETURNING id;")
+    
+    # Mark events as compressed
+    hexmem_query "UPDATE events SET consolidation_state = 'long_term', 
+                  compressed_to_seed_id = $seed_id WHERE id IN ($event_ids);"
+    
+    echo "Compressed events $event_ids into seed $seed_id"
+}
+
+# View memory health
+hexmem_health() {
+    hexmem_select "SELECT * FROM v_memory_health;"
+}
+
+# Get associated memories (spreading activation)
+hexmem_associations_of() {
+    local item_type="$1"
+    local item_id="$2"
+    
+    hexmem_select "SELECT to_type, to_id, association_type, strength 
+                   FROM memory_associations 
+                   WHERE from_type = '$item_type' AND from_id = $item_id
+                   ORDER BY strength DESC;"
+}
+
+# ============================================================================
+# IDENTITY SEEDS (Migration 004)
+# ============================================================================
+
+# Load all identity seeds (for session start)
+hexmem_load_identity() {
+    hexmem_select "SELECT seed_name, seed_text FROM v_identity_load_order;"
+}
+
+# Get a specific identity seed
+hexmem_identity_seed() {
+    local name="$1"
+    hexmem_select "SELECT seed_text, anchors FROM identity_seeds WHERE seed_name = '$name';"
+}
+
+# View identity summary
+hexmem_identity_summary() {
+    hexmem_select "SELECT * FROM v_identity_summary;"
+}
+
+# Update an identity seed (with versioning)
+hexmem_evolve_identity() {
+    local name="$1"
+    local new_text="$2"
+    local reason="$3"
+    
+    # Store previous version
+    hexmem_query "UPDATE identity_seeds 
+                  SET previous_version = seed_text,
+                      seed_text = '$new_text',
+                      evolution_reason = '$reason',
+                      version = version + 1,
+                      updated_at = datetime('now')
+                  WHERE seed_name = '$name';"
+    
+    echo "Identity seed '$name' evolved (reason: $reason)"
+}
+
+# Add a new identity seed
+hexmem_add_identity_seed() {
+    local category="$1"
+    local name="$2"
+    local text="$3"
+    local centrality="${4:-0.5}"
+    
+    hexmem_query "INSERT INTO identity_seeds (seed_category, seed_name, seed_text, centrality)
+                  VALUES ('$category', '$name', '$text', $centrality);"
+}
+
+# View compression patterns
+hexmem_compression_patterns() {
+    hexmem_select "SELECT pattern_name, pattern_type, template FROM self_compression_patterns;"
+}
+
+# Compress using a pattern
+hexmem_compress_with_pattern() {
+    local pattern="$1"
+    hexmem_select "SELECT template, required_fields FROM self_compression_patterns WHERE pattern_name = '$pattern';"
+}
+
+# ============================================================================
+# EMOTIONAL WEIGHTS (Migration 005)
+# ============================================================================
+
+# Set emotional dimensions on an event
+# Usage: hexmem_emote <event_id> <valence> <arousal> [tags_json]
+hexmem_emote() {
+    local event_id="$1"
+    local valence="$2"    # -1 to +1
+    local arousal="$3"    # 0 to 1
+    local tags="${4:-}"
+    
+    if [[ -n "$tags" ]]; then
+        hexmem_query "UPDATE events SET 
+                      emotional_valence = $valence,
+                      emotional_arousal = $arousal,
+                      emotional_tags = '$tags'
+                      WHERE id = $event_id;"
+    else
+        hexmem_query "UPDATE events SET 
+                      emotional_valence = $valence,
+                      emotional_arousal = $arousal
+                      WHERE id = $event_id;"
+    fi
+}
+
+# Log an event with emotions in one call
+# Usage: hexmem_event_emote <type> <category> <summary> <valence> <arousal> [details] [tags]
+hexmem_event_emote() {
+    local etype="$1"
+    local category="$2"
+    local summary="$3"
+    local valence="$4"
+    local arousal="$5"
+    local details="${6:-}"
+    local tags="${7:-}"
+    
+    if [[ -n "$tags" ]]; then
+        hexmem_query "INSERT INTO events (event_type, category, summary, details, emotional_valence, emotional_arousal, emotional_tags)
+                      VALUES ('$etype', '$category', '$summary', '$details', $valence, $arousal, '$tags');"
+    else
+        hexmem_query "INSERT INTO events (event_type, category, summary, details, emotional_valence, emotional_arousal)
+                      VALUES ('$etype', '$category', '$summary', '$details', $valence, $arousal);"
+    fi
+}
+
+# View emotional highlights
+hexmem_emotional_highlights() {
+    hexmem_select "SELECT * FROM v_emotional_highlights LIMIT 10;"
+}
+
+# View positive memories
+hexmem_positive_memories() {
+    hexmem_select "SELECT * FROM v_positive_memories LIMIT 10;"
+}
+
+# View retrieval priority
+hexmem_retrieval_priority() {
+    hexmem_select "SELECT * FROM v_retrieval_priority LIMIT 10;"
+}
+
+# Look up emotion vocabulary
+hexmem_emotion_lookup() {
+    local emotion="$1"
+    hexmem_select "SELECT emotion, typical_valence, typical_arousal, description 
+                   FROM emotion_vocabulary WHERE emotion LIKE '%$emotion%';"
+}
+
+# List all emotions in vocabulary
+hexmem_emotions() {
+    hexmem_select "SELECT emotion, category, typical_valence as val, typical_arousal as aro 
+                   FROM emotion_vocabulary ORDER BY category, emotion;"
+}
+
+echo "HexMem helpers loaded. Database: $HEXMEM_DB"
