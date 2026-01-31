@@ -2,9 +2,21 @@
     "@context": "https://w3id.org/security/v2",
     "type": "RepoManifest",
     "issuer": "did:cid:bagaaierajrr7k6izcrdfwqxpgtrobflsv5oibymfnthjazkkokaugszyh4ka",
-    "created": "2026-01-31T17:00:20Z",
+    "created": "2026-01-31T17:03:49Z",
     "repository": "https://github.com/hexdaemon/hexmem",
     "files": [
+        {
+            "path": "./clawdbot-hook/handler.js",
+            "sha256": "a38497475c9bbe34dfb6e267f268a95f9543cd30697572857b4b9bb775c5c75e"
+        },
+        {
+            "path": "./clawdbot-hook/HOOK.md",
+            "sha256": "4b5922fa1c7f132ebe4e6cb667541214b5188d96874b2eb9f666a5571b7b2c6b"
+        },
+        {
+            "path": "./clawdbot-hook/README.md",
+            "sha256": "0f5fedf2f1de65f6fdc07db5a5efa259d3dac240c48e87b505bed2d738c3e6ff"
+        },
         {
             "path": "./embed.py",
             "sha256": "eb37f4f11de536c77092038b1ac7f474de0236371ac3144452a349879f578e26"
@@ -68,9 +80,9 @@
     ],
     "proof": {
         "type": "EcdsaSecp256k1Signature2019",
-        "created": "2026-01-31T17:00:22.893Z",
+        "created": "2026-01-31T17:03:50.869Z",
         "verificationMethod": "did:cid:bagaaierajrr7k6izcrdfwqxpgtrobflsv5oibymfnthjazkkokaugszyh4ka#key-1",
         "proofPurpose": "assertionMethod",
-        "proofValue": "MtY0KXV_NJPHEMS8aR7SRAhV4sxa8Ff2Pal8G7xzH50Y_lNxROr_kqla-V7f-itnlg8Y25zz9B0OHhlRyHLIpA"
+        "proofValue": "ngjDG6v98xDaiT555TDvpSdokdG2gq_Kg4wG_BqaxisUxBxOjb0icp9z4go-tBnlnLml3QdgGVhPt8zl4UcYug"
     }
 }
