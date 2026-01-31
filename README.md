@@ -149,11 +149,58 @@ They're complementary — MoltBrain for automatic observation, HexMem for identi
 
 Features inspired by MoltBrain and planned for HexMem:
 
-- [ ] **Semantic search** via sqlite-vec or ChromaDB ([#1](https://github.com/hexdaemon/hexmem/issues/1))
+- [x] **Semantic search** via sqlite-vec ([#1](https://github.com/hexdaemon/hexmem/issues/1)) ✅
 - [ ] **Session lifecycle hooks** for automatic capture ([#2](https://github.com/hexdaemon/hexmem/issues/2))
 - [ ] **Web viewer** for browsing memories ([#3](https://github.com/hexdaemon/hexmem/issues/3))
 - [ ] **Context injection** at session start
 - [ ] **MCP server** for tool-based access
+
+## Semantic Search
+
+HexMem includes vector-based semantic search using [sqlite-vec](https://github.com/asg017/sqlite-vec) and [sentence-transformers](https://www.sbert.net/).
+
+### Setup
+
+```bash
+# Create virtual environment
+cd hexmem
+python3 -m venv .venv
+source .venv/bin/activate
+
+# Install dependencies
+pip install torch --index-url https://download.pytorch.org/whl/cpu
+pip install sqlite-vec sentence-transformers
+
+# Initialize vector tables
+python embed.py --init-vec
+
+# Process any pending embeddings
+python embed.py --process-queue
+```
+
+### Usage
+
+```bash
+# Search with rich output
+python search.py "identity and self-model"
+
+# JSON output
+python search.py "Lightning routing" --json
+
+# Limit to specific source
+python search.py "lessons learned" --source lessons
+
+# Or use shell helpers
+source hexmem.sh
+hexmem_search "query"
+```
+
+### How It Works
+
+1. New events/lessons trigger automatic queue entries (via SQL triggers)
+2. `embed.py --process-queue` generates embeddings using all-MiniLM-L6-v2
+3. Embeddings stored in vec0 virtual tables
+4. Search uses cosine distance for similarity ranking
 
 ## Theoretical Grounding
 
