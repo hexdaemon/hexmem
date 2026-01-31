@@ -2,7 +2,7 @@
     "@context": "https://w3id.org/security/v2",
     "type": "RepoManifest",
     "issuer": "did:cid:bagaaierajrr7k6izcrdfwqxpgtrobflsv5oibymfnthjazkkokaugszyh4ka",
-    "created": "2026-01-31T17:03:49Z",
+    "created": "2026-01-31T17:09:08Z",
     "repository": "https://github.com/hexdaemon/hexmem",
     "files": [
         {
@@ -27,7 +27,7 @@
         },
         {
             "path": "./hexmem.sh",
-            "sha256": "69df31bf038bb6674016545fd9389236cb364c7a21e18e1ad0f1056bf82b5eeb"
+            "sha256": "2f8115e6c374a51988edd86880a440cb1f1cb0f922ca72551e1906278f0fe114"
         },
         {
             "path": "./LICENSE",
@@ -62,8 +62,16 @@
             "sha256": "f2b648e67d79386c64a507cd3a19abc5750a9eeae8b7504e39b9ab127ca33784"
         },
         {
+            "path": "./migrations/007_forgetting_curve.sql",
+            "sha256": "741430891a69efaf4c7a04b95d5d107ae008c858e94f36a00ac57260a67e2fbe"
+        },
+        {
             "path": "./README.md",
-            "sha256": "2175016d68d4e6bdbff4b31bc89b780ede79f899c675cba64f6bbf487544e9b7"
+            "sha256": "39f1776d3d06fb1a3ae2fe85fa0a6cd35a7cb4075e57b16a4213d84bc95acb54"
+        },
+        {
+            "path": "./review.py",
+            "sha256": "7ceea39ed1d2c3ec6ccacc86ecf912b48fc7c68284c844a92e326713c611bc48"
         },
         {
             "path": "./scripts/sign-repo.sh",
@@ -80,9 +88,9 @@
     ],
     "proof": {
         "type": "EcdsaSecp256k1Signature2019",
-        "created": "2026-01-31T17:03:50.869Z",
+        "created": "2026-01-31T17:09:09.828Z",
         "verificationMethod": "did:cid:bagaaierajrr7k6izcrdfwqxpgtrobflsv5oibymfnthjazkkokaugszyh4ka#key-1",
         "proofPurpose": "assertionMethod",
-        "proofValue": "ngjDG6v98xDaiT555TDvpSdokdG2gq_Kg4wG_BqaxisUxBxOjb0icp9z4go-tBnlnLml3QdgGVhPt8zl4UcYug"
+        "proofValue": "dTSgrta6GmzUAo_-ymrNeuu6YXRYO-L9Nd9yfAQkpDIYAFgWDEiNRJOTxKGWPDMMpWZlgqg64y2eD6eBx2uE1g"
     }
 }
