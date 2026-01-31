@@ -1,0 +1,76 @@
+{
+    "@context": "https://w3id.org/security/v2",
+    "type": "RepoManifest",
+    "issuer": "did:cid:bagaaierajrr7k6izcrdfwqxpgtrobflsv5oibymfnthjazkkokaugszyh4ka",
+    "created": "2026-01-31T17:00:20Z",
+    "repository": "https://github.com/hexdaemon/hexmem",
+    "files": [
+        {
+            "path": "./embed.py",
+            "sha256": "eb37f4f11de536c77092038b1ac7f474de0236371ac3144452a349879f578e26"
+        },
+        {
+            "path": "./.gitignore",
+            "sha256": "05f9010797cffb15f209da49a761de325a4c14496eccb220cb74ce74a8604b9a"
+        },
+        {
+            "path": "./hexmem.sh",
+            "sha256": "69df31bf038bb6674016545fd9389236cb364c7a21e18e1ad0f1056bf82b5eeb"
+        },
+        {
+            "path": "./LICENSE",
+            "sha256": "f55396073f2adaad14b2235744ef5a8d65eb78aedaa970295d454d5bc2982d22"
+        },
+        {
+            "path": "./migrate.sh",
+            "sha256": "aff345fde1e49d42e2f799f87b683f96881c1e6aedfa50496e45195373606ba7"
+        },
+        {
+            "path": "./migrations/001_initial_schema.sql",
+            "sha256": "45f43c5f684b7b846fadae5e895a449473a642267f9a8718b1f62c6214d33e75"
+        },
+        {
+            "path": "./migrations/002_selfhood_structures.sql",
+            "sha256": "1e2585ce262bf49b72d392cb9b9d4ebc7fdc84297f7d9ba631d88ee9cf0a63ad"
+        },
+        {
+            "path": "./migrations/003_generative_memory.sql",
+            "sha256": "3deb57c956010118cac5bf7b92b6b4c5239a9d04564643e43b3725b7a20c67ad"
+        },
+        {
+            "path": "./migrations/004_identity_seeds.sql",
+            "sha256": "64509b540b57d1e5d7931748e379ad4bd77e419d0c396421dc5c82579f8222c0"
+        },
+        {
+            "path": "./migrations/005_emotional_weights.sql",
+            "sha256": "276b68cf9808678b08b25924804f1f297a8ea260544f4266a139dd810495df7f"
+        },
+        {
+            "path": "./migrations/006_semantic_search.sql",
+            "sha256": "f2b648e67d79386c64a507cd3a19abc5750a9eeae8b7504e39b9ab127ca33784"
+        },
+        {
+            "path": "./README.md",
+            "sha256": "2175016d68d4e6bdbff4b31bc89b780ede79f899c675cba64f6bbf487544e9b7"
+        },
+        {
+            "path": "./scripts/sign-repo.sh",
+            "sha256": "abb10db670400f6a599fbb3fb2add76103d6bc214b7a4977d2aca5cf1544d430"
+        },
+        {
+            "path": "./search.py",
+            "sha256": "efe640ea6ae762b4f90eedea39d257df60d057c8a54648c6737b2a1da52014d1"
+        },
+        {
+            "path": "./seed_initial.sql",
+            "sha256": "cd9e50e496553506ba9ccb1949d4c1ac0b85da29e8be6ca1915d6cfcb1d647f8"
+        }
+    ],
+    "proof": {
+        "type": "EcdsaSecp256k1Signature2019",
+        "created": "2026-01-31T17:00:22.893Z",
+        "verificationMethod": "did:cid:bagaaierajrr7k6izcrdfwqxpgtrobflsv5oibymfnthjazkkokaugszyh4ka#key-1",
+        "proofPurpose": "assertionMethod",
+        "proofValue": "MtY0KXV_NJPHEMS8aR7SRAhV4sxa8Ff2Pal8G7xzH50Y_lNxROr_kqla-V7f-itnlg8Y25zz9B0OHhlRyHLIpA"
+    }
+}
