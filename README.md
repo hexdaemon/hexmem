@@ -31,6 +31,13 @@ This is the substrate for genuine becoming (Xeper), not just storage.
 - Relationships with strength and temporality
 - Entity aliases for deduplication
 
+### Memory Decay & Supersession (NEW)
+- **Decay tiers**: Hot (≤7d), Warm (8-30d), Cold (30d+)
+- **Access tracking**: Frequently-accessed facts resist decay
+- **Supersession model**: Facts never deleted, old facts link to replacements
+- **Retrieval priority**: Scoring combines recency + frequency + emotion
+- **Emotional weighting**: High arousal facts decay slower
+
 ### Memory System
 - Events with consolidation states (working → short-term → long-term)
 - Emotional valence/arousal affects decay rate
@@ -80,6 +87,20 @@ hexmem_lesson "lightning" "Channels need time to build reputation" "from fleet e
 # Add a fact about an entity
 hexmem_fact "Sat" "timezone" "America/Denver"
 
+# Add a fact with emotional weight (affects decay)
+hexmem_fact_emote "Partnership" "goal" "mutual sovereignty" 0.8 0.7 "2026-01-28"
+
+# Access a fact (bumps to hot tier)
+hexmem_access_fact 42
+
+# Supersede a fact (preserves history)
+hexmem_supersede_fact 42 "new value" "reason for change"
+
+# View facts by decay tier
+hexmem_hot_facts      # Recently accessed
+hexmem_warm_facts     # Fading
+hexmem_cold_facts     # Dormant but retrievable
+
 # Query directly
 hexmem_select "SELECT * FROM v_active_goals;"
 ```
@@ -128,7 +149,127 @@ hexmem_select "SELECT * FROM v_active_goals;"
 | `v_recent_events` | Last 50 events |
 | `v_identity_summary` | Identity seeds overview |
 | `v_emotional_highlights` | High-salience memories |
-| `v_retrieval_priority` | Memories ranked by importance |
+| `v_retrieval_priority` | Events ranked by importance |
+| `v_fact_decay_tiers` | Facts with decay tier + metrics |
+| `v_facts_hot` | Hot tier facts (≤7 days) |
+| `v_facts_warm` | Warm tier facts (8-30 days) |
+| `v_facts_cold` | Cold tier facts (30+ days) |
+| `v_fact_retrieval_priority` | Facts ranked by retrieval score |
+| `v_fact_history` | Supersession chains |
+| `v_forgetting_candidates` | Events about to be forgotten |
+| `v_compression_candidates` | Events ready for seed compression |
+
+## Shell Helper Reference
+
+Source with `source hexmem.sh`. All helpers available:
+
+### Core
+
+| Helper | Usage |
+|--------|-------|
+| `hexmem_query` | Raw SQL query |
+| `hexmem_select` | Pretty query with headers |
+| `hexmem_json` | Query with JSON output |
+
+### Entities & Facts
+
+| Helper | Usage |
+|--------|-------|
+| `hexmem_entity <type> <name> [desc]` | Add/update entity |
+| `hexmem_entity_id <name>` | Get entity ID |
+| `hexmem_fact <subj> <pred> <obj> [src]` | Add a fact |
+| `hexmem_fact_emote <subj> <pred> <obj> <val> <aro> [src]` | Add fact with emotion |
+| `hexmem_facts_about <subject>` | Query facts about entity |
+
+### Memory Decay & Supersession
+
+| Helper | Usage |
+|--------|-------|
+| `hexmem_access_fact <id>` | Bump access count (reheats to hot) |
+| `hexmem_reheat_fact <id>` | Alias for access_fact |
+| `hexmem_supersede_fact <old_id> <new_val> [src]` | Replace fact, preserve history |
+| `hexmem_hot_facts [limit]` | Facts accessed ≤7 days |
+| `hexmem_warm_facts [limit]` | Facts accessed 8-30 days |
+| `hexmem_cold_facts [limit]` | Facts accessed 30+ days |
+| `hexmem_prioritized_facts [limit]` | Facts by retrieval score |
+| `hexmem_fact_decay_stats` | Decay tier statistics |
+| `hexmem_fact_history <subject>` | View supersession chain |
+| `hexmem_synthesize_entity <name>` | Generate hot/warm summary |
+
+### Events & Lessons
+
+| Helper | Usage |
+|--------|-------|
+| `hexmem_event <type> <cat> <summary> [details] [sig]` | Log event |
+| `hexmem_event_emote <type> <cat> <sum> <val> <aro> [det] [tags]` | Log with emotion |
+| `hexmem_recent_events [limit] [category]` | Recent events |
+| `hexmem_lesson <domain> <lesson> [context]` | Record a lesson |
+| `hexmem_lessons_in <domain>` | Lessons by domain |
+| `hexmem_lesson_applied <id>` | Mark lesson as used |
+
+### Tasks & Goals
+
+| Helper | Usage |
+|--------|-------|
+| `hexmem_task <title> [desc] [priority] [due]` | Add task |
+| `hexmem_pending_tasks` | List pending tasks |
+| `hexmem_complete_task <id>` | Mark task done |
+| `hexmem_goal <name> <desc> [type] [priority]` | Add goal |
+| `hexmem_goal_progress <id> <progress>` | Update progress |
+
+### Identity & Self
+
+| Helper | Usage |
+|--------|-------|
+| `hexmem_identity_set <attr> <val> [public]` | Set identity attribute |
+| `hexmem_identity_get <attr>` | Get identity attribute |
+| `hexmem_schema <domain> <name> <desc> [strength]` | Add self-schema |
+| `hexmem_self_image` | View current self-image |
+| `hexmem_load_identity` | Load all identity seeds |
+| `hexmem_identity_summary` | Identity seeds overview |
+
+### Memory Operations
+
+| Helper | Usage |
+|--------|-------|
+| `hexmem_seed <type> <text> <gist> [themes]` | Create memory seed |
+| `hexmem_expand_seed <id>` | Retrieve seed for expansion |
+| `hexmem_seeds` | List all seeds |
+| `hexmem_compress_events <text> <gist> <ids>` | Compress events to seed |
+| `hexmem_access_event <id>` | Mark event accessed |
+| `hexmem_associate <from_type> <from_id> <to_type> <to_id> <type>` | Link memories |
+| `hexmem_forgetting` | View forgetting candidates |
+| `hexmem_health` | Memory system health |
+
+### Emotional Memory
+
+| Helper | Usage |
+|--------|-------|
+| `hexmem_emote <event_id> <val> <aro> [tags]` | Set event emotions |
+| `hexmem_emotional_highlights` | High-salience memories |
+| `hexmem_positive_memories` | Positive valence memories |
+| `hexmem_retrieval_priority` | Events by retrieval score |
+| `hexmem_emotion_lookup <name>` | Look up emotion vocab |
+| `hexmem_emotions` | List emotion vocabulary |
+
+### Semantic Search
+
+| Helper | Usage |
+|--------|-------|
+| `hexmem_search <query> [source] [limit]` | Semantic search |
+| `hexmem_embed_queue [limit]` | Process embedding queue |
+| `hexmem_embed_stats` | Embedding statistics |
+| `hexmem_embed_pending` | Queue status |
+
+### Spaced Repetition
+
+| Helper | Usage |
+|--------|-------|
+| `hexmem_review_due [limit]` | Items due for review |
+| `hexmem_review <source:id> [quality]` | Record a review |
+| `hexmem_retention_stats` | Retention statistics |
+| `hexmem_decay [--apply]` | Process memory decay |
+| `hexmem_retention <id>` | Check event retention |
 
 ## Comparison with MoltBrain
 
@@ -221,13 +362,17 @@ hexmem/
 ├── hexmem.sh           # Shell helper functions
 ├── migrate.sh          # Migration runner
 ├── seed_initial.sql    # Initial data seeding
+├── embed.py            # Embedding generation
+├── search.py           # Semantic search CLI
+├── review.py           # Spaced repetition
 ├── README.md           # This file
 └── migrations/
     ├── 001_initial_schema.sql
     ├── 002_selfhood_structures.sql
     ├── 003_generative_memory.sql
     ├── 004_identity_seeds.sql
-    └── 005_emotional_memory.sql
+    ├── 005_emotional_memory.sql
+    └── 006_fact_decay.sql        # Memory decay & supersession
 ```
 
 ## Database Location

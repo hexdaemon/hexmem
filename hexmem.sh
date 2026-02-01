@@ -787,3 +787,171 @@ hexmem_retention() {
 }
 
 echo "HexMem helpers loaded. Database: $HEXMEM_DB"
+
+# ============================================================================
+# FACT DECAY & SUPERSESSION (New - 2026-02-01)
+# Based on Nate Liason's Agentic PKM article
+# ============================================================================
+
+# Access a fact (bump access count, updates last_accessed_at via trigger)
+# Usage: hexmem_access_fact <fact_id>
+hexmem_access_fact() {
+    local fact_id="$1"
+    hexmem_query "UPDATE facts SET access_count = access_count + 1 WHERE id = $fact_id;"
+    echo "Accessed fact $fact_id"
+}
+
+# Supersede a fact (old fact marked superseded, new one created with history link)
+# Usage: hexmem_supersede_fact <old_fact_id> <new_object_text> [source]
+hexmem_supersede_fact() {
+    local old_id="$1"
+    local new_value="$2"
+    local source="${3:-supersession}"
+    
+    # Get old fact details
+    local old_data=$(hexmem_query "SELECT subject_entity_id, subject_text, predicate, confidence 
+                                   FROM facts WHERE id = $old_id;")
+    
+    if [[ -z "$old_data" ]]; then
+        echo "Error: Fact $old_id not found"
+        return 1
+    fi
+    
+    # Create new fact (will get new ID)
+    local new_id=$(hexmem_query "INSERT INTO facts (
+        subject_entity_id, subject_text, predicate, object_text, 
+        confidence, source, status, last_accessed_at
+    ) SELECT 
+        subject_entity_id, subject_text, predicate, '$new_value',
+        confidence, '$source', 'active', datetime('now')
+    FROM facts WHERE id = $old_id
+    RETURNING id;")
+    
+    # Mark old fact as superseded
+    hexmem_query "UPDATE facts SET 
+                  status = 'superseded', 
+                  superseded_by = $new_id,
+                  updated_at = datetime('now')
+                  WHERE id = $old_id;"
+    
+    echo "Fact $old_id superseded by $new_id"
+}
+
+# Get hot facts (accessed in last 7 days)
+hexmem_hot_facts() {
+    local limit="${1:-20}"
+    hexmem_select "SELECT id, COALESCE(subject_name, subject_text) as subject, 
+                          predicate, object_text, access_count, decay_tier
+                   FROM v_facts_hot LIMIT $limit;"
+}
+
+# Get warm facts (8-30 days)
+hexmem_warm_facts() {
+    local limit="${1:-20}"
+    hexmem_select "SELECT id, COALESCE(subject_name, subject_text) as subject,
+                          predicate, object_text, access_count, decay_tier
+                   FROM v_facts_warm LIMIT $limit;"
+}
+
+# Get cold facts (30+ days, not in summaries but retrievable)
+hexmem_cold_facts() {
+    local limit="${1:-20}"
+    hexmem_select "SELECT id, COALESCE(subject_name, subject_text) as subject,
+                          predicate, object_text, access_count, days_since_access
+                   FROM v_facts_cold LIMIT $limit;"
+}
+
+# Get facts by retrieval priority (for smart recall)
+hexmem_prioritized_facts() {
+    local limit="${1:-20}"
+    hexmem_select "SELECT id, subject_text, predicate, object_text, 
+                          decay_tier, retrieval_score
+                   FROM v_fact_retrieval_priority LIMIT $limit;"
+}
+
+# View fact supersession history
+hexmem_fact_history() {
+    local subject="$1"
+    hexmem_select "SELECT current_id, predicate, current_value, current_since,
+                          previous_id, previous_value, previous_from
+                   FROM v_fact_history 
+                   WHERE current_id IN (
+                       SELECT id FROM facts 
+                       WHERE subject_text LIKE '%$subject%' 
+                          OR subject_entity_id IN (SELECT id FROM entities WHERE name LIKE '%$subject%')
+                   );"
+}
+
+# Reheat a cold fact (access it to bump it back to hot)
+hexmem_reheat_fact() {
+    local fact_id="$1"
+    hexmem_access_fact "$fact_id"
+    echo "Fact $fact_id reheated"
+}
+
+# Decay statistics for facts
+hexmem_fact_decay_stats() {
+    hexmem_select "SELECT 
+        decay_tier,
+        COUNT(*) as count,
+        ROUND(AVG(access_count), 1) as avg_access,
+        ROUND(AVG(days_since_access), 1) as avg_days_cold
+    FROM v_fact_decay_tiers
+    GROUP BY decay_tier
+    ORDER BY 
+        CASE decay_tier 
+            WHEN 'hot' THEN 1 
+            WHEN 'warm' THEN 2 
+            ELSE 3 
+        END;"
+}
+
+# Add fact with emotional weight
+# Usage: hexmem_fact_emote <subject> <predicate> <object> <valence> <arousal> [source]
+hexmem_fact_emote() {
+    local subject="$1"
+    local predicate="$2"
+    local object="$3"
+    local valence="$4"
+    local arousal="$5"
+    local source="${6:-direct}"
+    
+    local subject_id=$(hexmem_entity_id "$subject")
+    
+    if [[ -n "$subject_id" ]]; then
+        hexmem_query "INSERT INTO facts (subject_entity_id, predicate, object_text, source, 
+                                         emotional_valence, emotional_arousal, last_accessed_at)
+                      VALUES ($subject_id, '$predicate', '$object', '$source', 
+                              $valence, $arousal, datetime('now'));"
+    else
+        hexmem_query "INSERT INTO facts (subject_text, predicate, object_text, source,
+                                         emotional_valence, emotional_arousal, last_accessed_at)
+                      VALUES ('$subject', '$predicate', '$object', '$source',
+                              $valence, $arousal, datetime('now'));"
+    fi
+}
+
+# Weekly synthesis: generate summary of hot/warm facts for an entity
+hexmem_synthesize_entity() {
+    local entity_name="$1"
+    local entity_id=$(hexmem_entity_id "$entity_name")
+    
+    if [[ -z "$entity_id" ]]; then
+        echo "Entity '$entity_name' not found"
+        return 1
+    fi
+    
+    echo "=== Hot Facts (last 7 days) ==="
+    hexmem_select "SELECT predicate, object_text, access_count 
+                   FROM v_facts_hot 
+                   WHERE subject_entity_id = $entity_id
+                   ORDER BY access_count DESC;"
+    
+    echo ""
+    echo "=== Warm Facts (8-30 days) ==="
+    hexmem_select "SELECT predicate, object_text, access_count 
+                   FROM v_facts_warm 
+                   WHERE subject_entity_id = $entity_id
+                   ORDER BY access_count DESC;"
+}
+
