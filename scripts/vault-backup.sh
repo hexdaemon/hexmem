@@ -12,6 +12,8 @@ DB="${HEXMEM_DB:-$HOME/clawd/hexmem/hexmem.db}"
 VAULT_DID="${HEXMEM_VAULT_DID:-}"
 VAULT_NAME="${HEXMEM_VAULT_NAME:-hexmem-vault}"
 
+ARCHON_DIR="$HOME/.config/hex/archon"
+
 if [[ -z "${ARCHON_PASSPHRASE:-}" ]]; then
   echo "Error: ARCHON_PASSPHRASE not set" >&2
   exit 1
@@ -21,7 +23,7 @@ cd "$REPO_DIR"
 
 # Resolve vault DID if not provided
 if [[ -z "$VAULT_DID" ]]; then
-  VAULT_DID=$(npx @didcid/keymaster get-name "$VAULT_NAME" 2>/dev/null || true)
+  VAULT_DID=$(cd "$ARCHON_DIR" && npx @didcid/keymaster get-name "$VAULT_NAME" 2>/dev/null || true)
 fi
 
 if [[ -z "$VAULT_DID" ]]; then
@@ -43,7 +45,8 @@ EXPORT_FILE=$(./scripts/export-significant.sh)
 
 # 3) Build metadata attestation
 TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-META_FILE="$REPO_DIR/exports/hexmem-vault-meta-$(date +%Y%m%d-%H%M%S).json"
+TS_ID=$(date -u +%Y%m%d%H%M%S)
+META_FILE="$REPO_DIR/exports/hexmem-vault-meta-$TS_ID.json"
 
 DB_SHA=$(sha256sum "$BACKUP_FILE" | awk '{print $1}')
 EX_SHA=$(sha256sum "$EXPORT_FILE" | awk '{print $1}')
@@ -60,12 +63,24 @@ EOF
 
 # 4) Sign metadata
 SIGNED_META="$META_FILE.signed.json"
-npx @didcid/keymaster sign-file "$META_FILE" > "$SIGNED_META" 2>/dev/null
+(cd "$ARCHON_DIR" && npx @didcid/keymaster sign-file "$META_FILE") > "$SIGNED_META" 2>/dev/null
 
 # 5) Upload artifacts
-npx @didcid/keymaster add-vault-item "$VAULT_DID" "$BACKUP_FILE"
-npx @didcid/keymaster add-vault-item "$VAULT_DID" "$EXPORT_FILE"
-npx @didcid/keymaster add-vault-item "$VAULT_DID" "$SIGNED_META"
+# Keymaster currently enforces short vault item names; stage with short basenames.
+STAGE_DIR=$(mktemp -d)
+trap 'rm -rf "$STAGE_DIR"' EXIT
+
+DB_STAGE="$STAGE_DIR/hmdb-$TS_ID.db"
+EX_STAGE="$STAGE_DIR/hmsig-$TS_ID.json"
+META_STAGE="$STAGE_DIR/hmmeta-$TS_ID.json"
+
+cp "$BACKUP_FILE" "$DB_STAGE"
+cp "$EXPORT_FILE" "$EX_STAGE"
+cp "$SIGNED_META" "$META_STAGE"
+
+(cd "$ARCHON_DIR" && npx @didcid/keymaster add-vault-item "$VAULT_DID" "$DB_STAGE")
+(cd "$ARCHON_DIR" && npx @didcid/keymaster add-vault-item "$VAULT_DID" "$EX_STAGE")
+(cd "$ARCHON_DIR" && npx @didcid/keymaster add-vault-item "$VAULT_DID" "$META_STAGE")
 
 # 6) Clear "backup needed" flag (best-effort)
 sqlite3 "$DB" "INSERT INTO kv_store(key,value,namespace,updated_at) VALUES('vault_backup_needed','0','hexmem',datetime('now'))

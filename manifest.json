@@ -2,7 +2,7 @@
     "@context": "https://w3id.org/security/v2",
     "type": "RepoManifest",
     "issuer": "did:cid:bagaaierajrr7k6izcrdfwqxpgtrobflsv5oibymfnthjazkkokaugszyh4ka",
-    "created": "2026-02-01T18:09:31Z",
+    "created": "2026-02-01T18:13:14Z",
     "repository": "https://github.com/hexdaemon/hexmem",
     "files": [
         {
@@ -34,8 +34,56 @@
             "sha256": "fcf829466c13cc945e1f33461e60355c9b463ecb2dd1054258d475648c29bf29"
         },
         {
+            "path": "./exports/hexmem-significant-20260201-111027.json",
+            "sha256": "5a5782356711b8745c0774313a7ea88927090b2b3acce4f1d4788d6ddbca12e9"
+        },
+        {
+            "path": "./exports/hexmem-significant-20260201-111116.json",
+            "sha256": "7b0131edf9bc818fbc572e566e92b918c5feb1e5f207ac2f953134a21c7c1593"
+        },
+        {
+            "path": "./exports/hexmem-significant-20260201-111157.json",
+            "sha256": "83eb87424a1de925e287747cd80550a208a57d293deed70098ce71d1ffa96db1"
+        },
+        {
+            "path": "./exports/hexmem-significant-20260201-111223.json",
+            "sha256": "40469f0f6b166c274164a6fd6a4c91fa29d2f3198d0231b05cdceee2c8516681"
+        },
+        {
+            "path": "./exports/hexmem-vault-meta-20260201-111027.json",
+            "sha256": "5f35acba54ec8d1c159f085a036db6fb2e4beddd30c02cb73cb7b6c2670de1f5"
+        },
+        {
+            "path": "./exports/hexmem-vault-meta-20260201-111027.json.signed.json",
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+            "path": "./exports/hexmem-vault-meta-20260201-111116.json",
+            "sha256": "63c51c7a7290d8dc80c7d9402275febc365ce188bfa37207548cb8b9c9935db6"
+        },
+        {
+            "path": "./exports/hexmem-vault-meta-20260201-111116.json.signed.json",
+            "sha256": "f11090627fffed713859200170541265eaee77652a8ec9042a68daaebedf6453"
+        },
+        {
+            "path": "./exports/hexmem-vault-meta-20260201-111157.json",
+            "sha256": "c52105e71f199c4ee2adf875f9690703de3adff6a8bf049cbc02a1e8323ce8c2"
+        },
+        {
+            "path": "./exports/hexmem-vault-meta-20260201-111157.json.signed.json",
+            "sha256": "dea32a4307c0937a8eefdbfda09c565b939994d771506a4fca9d935536f69143"
+        },
+        {
+            "path": "./exports/hexmem-vault-meta-20260201181223.json",
+            "sha256": "29ec6661c930eac53d3193c6ba805b05c9f89f6472d9fe4260185500e54b66f6"
+        },
+        {
+            "path": "./exports/hexmem-vault-meta-20260201181223.json.signed.json",
+            "sha256": "a6ea2a166be1fd61980d8df43edf0e4c75bbb45e983730c70ba7f202075a8ea7"
+        },
+        {
             "path": "./.gitignore",
-            "sha256": "4b9aaf13d96b93929e9ff690f0a6ad7e7aa62150656deea521c093396d40b5b7"
+            "sha256": "2429a8b8688148a526c6dccad051f81daa4bd24621d51634648dd103b4f445fc"
         },
         {
             "path": "./hexmem.sh",
@@ -111,7 +159,7 @@
         },
         {
             "path": "./scripts/vault-backup.sh",
-            "sha256": "b17452f343a6c012ee66846ececc050d083768201fe8f5036ee7d765b24db714"
+            "sha256": "5054888b872e901d4f7089b038333da3e149cc7cd0e22c362373373f91d8f82e"
         },
         {
             "path": "./search.py",
@@ -124,9 +172,9 @@
     ],
     "proof": {
         "type": "EcdsaSecp256k1Signature2019",
-        "created": "2026-02-01T18:09:33.689Z",
+        "created": "2026-02-01T18:13:16.950Z",
         "verificationMethod": "did:cid:bagaaierajrr7k6izcrdfwqxpgtrobflsv5oibymfnthjazkkokaugszyh4ka#key-1",
         "proofPurpose": "assertionMethod",
-        "proofValue": "rdDg6tyWhQxcl6XXT4Msw8knDb13paWGY6TdP-VJaqJLmzQCLiCi6-J6DxNPf_qHv2ZoKRX48I6BSbUjZeXOYw"
+        "proofValue": "HdaDEJmUPAiYUAC8mN9D3-_dnBqGwG729SdFIPgCEJwiKqcJff_W2f-kJXZL3xPJvLLgO8Bigvy_54gaEH2gtw"
     }
 }
