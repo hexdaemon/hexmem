@@ -10,11 +10,15 @@ if [[ -z "${ARCHON_PASSPHRASE:-}" ]]; then
   exit 1
 fi
 
-DID=$(npx @didcid/keymaster create-vault -n "$VAULT_NAME" 2>/dev/null | tail -n 1 || true)
+# keymaster resolves the wallet relative to the current directory in some setups.
+# Use the canonical Archon config dir so "current ID" is available.
+ARCHON_DIR="$HOME/.config/hex/archon"
+
+DID=$(cd "$ARCHON_DIR" && npx @didcid/keymaster create-vault -n "$VAULT_NAME" 2>/dev/null | tail -n 1 || true)
 
 # In case create-vault doesn't print just DID, attempt resolve via name
 if [[ -z "$DID" || "$DID" != did:* ]]; then
-  DID=$(npx @didcid/keymaster get-name "$VAULT_NAME" 2>/dev/null || true)
+  DID=$(cd "$ARCHON_DIR" && npx @didcid/keymaster get-name "$VAULT_NAME" 2>/dev/null || true)
 fi
 
 if [[ -z "$DID" ]]; then

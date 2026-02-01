@@ -2,7 +2,7 @@
     "@context": "https://w3id.org/security/v2",
     "type": "RepoManifest",
     "issuer": "did:cid:bagaaierajrr7k6izcrdfwqxpgtrobflsv5oibymfnthjazkkokaugszyh4ka",
-    "created": "2026-02-01T18:07:58Z",
+    "created": "2026-02-01T18:09:31Z",
     "repository": "https://github.com/hexdaemon/hexmem",
     "files": [
         {
@@ -99,7 +99,7 @@
         },
         {
             "path": "./scripts/create-hexmem-vault.sh",
-            "sha256": "07497f34877a02836e37adf239216ee3676ad7f58c095796977fb6de7a0fb04e"
+            "sha256": "ebafe1e10ea0ff7b63a0bf956b6270dbeee3f860ed514061c6e1c71836d607df"
         },
         {
             "path": "./scripts/export-significant.sh",
@@ -124,9 +124,9 @@
     ],
     "proof": {
         "type": "EcdsaSecp256k1Signature2019",
-        "created": "2026-02-01T18:08:00.404Z",
+        "created": "2026-02-01T18:09:33.689Z",
         "verificationMethod": "did:cid:bagaaierajrr7k6izcrdfwqxpgtrobflsv5oibymfnthjazkkokaugszyh4ka#key-1",
         "proofPurpose": "assertionMethod",
-        "proofValue": "jZuI0zTjvDjsI1eE5J5yQJxk5WdHHgjsGIKiaZlMfjY0bd3dW1s9obM_QjhMYUP2NldPliYABskMm4aopuxAMQ"
+        "proofValue": "rdDg6tyWhQxcl6XXT4Msw8knDb13paWGY6TdP-VJaqJLmzQCLiCi6-J6DxNPf_qHv2ZoKRX48I6BSbUjZeXOYw"
     }
 }
