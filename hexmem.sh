@@ -1083,3 +1083,69 @@ hexmem_synthesize_entity() {
                    ORDER BY access_count DESC;"
 }
 
+
+# Genealogy of Beliefs - trace evolution of a belief
+hexmem_fact_history() {
+    local fact_id="$1"
+    if [[ -z "$fact_id" ]]; then
+        echo "Usage: hexmem_fact_history <fact_id>" >&2
+        return 1
+    fi
+    
+    echo "Fact Evolution Chain for ID $fact_id:"
+    echo ""
+    
+    sqlite3 "$HEXMEM_DB" <<SQL
+.mode column
+.headers on
+SELECT 
+    id,
+    CASE 
+        WHEN valid_until IS NULL THEN 'CURRENT'
+        ELSE 'SUPERSEDED'
+    END as status,
+    subject_text || ' ' || predicate || ' ' || object_text as content,
+    confidence,
+    substr(created_at, 1, 19) as created_at,
+    substr(valid_until, 1, 19) as valid_until,
+    superseded_by
+FROM facts
+WHERE id = $fact_id
+   OR superseded_by = $fact_id
+   OR id IN (SELECT superseded_by FROM facts WHERE id = $fact_id)
+ORDER BY created_at;
+SQL
+}
+
+hexmem_lesson_history() {
+    local lesson_id="$1"
+    if [[ -z "$lesson_id" ]]; then
+        echo "Usage: hexmem_lesson_history <lesson_id>" >&2
+        return 1
+    fi
+    
+    echo "Lesson Evolution Chain for ID $lesson_id:"
+    echo ""
+    
+    sqlite3 "$HEXMEM_DB" <<SQL
+.mode column
+.headers on
+SELECT 
+    id,
+    CASE 
+        WHEN valid_until IS NULL THEN 'CURRENT'
+        ELSE 'SUPERSEDED'
+    END as status,
+    domain,
+    lesson,
+    confidence,
+    substr(created_at, 1, 19) as created_at,
+    substr(valid_until, 1, 19) as valid_until,
+    superseded_by
+FROM lessons
+WHERE id = $lesson_id
+   OR superseded_by = $lesson_id
+   OR id IN (SELECT superseded_by FROM lessons WHERE id = $lesson_id)
+ORDER BY created_at;
+SQL
+}

@@ -56,6 +56,19 @@ This is the substrate for genuine becoming (Xeper), not just storage.
 - Future selves (aspirations and fears)
 - Temporal links for mental time travel
 
+### Epistemic Extraction Pipeline (NEW)
+Transform raw experience into structured wisdom through **batch reflection**:
+
+- **hex-reflect.sh**: Review recent events, generate YAML manifest of insights
+- **Genealogy of Beliefs**: Track evolution of beliefs with `valid_until` and `superseded_by`
+- **High-leverage review**: Uncomment approved insights in editor, auto-commit to database
+- **Supersession logic**: New beliefs replace old with full provenance tracking
+- **Query helpers**: `hexmem_fact_history`, `hexmem_lesson_history` to trace evolution
+
+> "You don't just fix bugs in code; you fix bugs in your *self*." — Architecture designed with Gemini
+
+📖 **[Full Documentation](docs/EPISTEMIC_EXTRACTION.md)**
+
 ## Installation
 
 ```bash
