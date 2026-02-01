@@ -367,7 +367,10 @@ hexmem/
 ├── review.py           # Spaced repetition
 ├── README.md           # This file
 ├── scripts/
-│   ├── backup.sh       # Safe SQLite backups
+│   ├── backup.sh             # Safe SQLite backups
+│   ├── export-significant.sh # Privacy-aware JSON export for signing/vault
+│   ├── vault-backup.sh       # Signed artifacts -> Archon vault
+│   ├── create-hexmem-vault.sh# Create dedicated vault (hexmem-vault)
 │   └── sign-repo.sh
 └── migrations/
     ├── 001_initial_schema.sql

@@ -13,6 +13,24 @@ hexmem_sql_escape() {
     printf "%s" "${1:-}" | sed "s/'/''/g"
 }
 
+# Mark that something "significant" happened and a vault backup should be created.
+# This does not run the backup itself (needs ARCHON_PASSPHRASE + vault access).
+hexmem_mark_significant() {
+    local reason="${1:-significant}"
+    local reason_esc=$(hexmem_sql_escape "$reason")
+    hexmem_query "INSERT INTO kv_store(key,value,namespace,updated_at)
+                  VALUES('vault_backup_needed','1','hexmem',datetime('now'))
+                  ON CONFLICT(namespace,key) DO UPDATE SET value='1', updated_at=datetime('now');"
+    hexmem_query "INSERT INTO kv_store(key,value,namespace,updated_at)
+                  VALUES('vault_backup_reason','$reason_esc','hexmem',datetime('now'))
+                  ON CONFLICT(namespace,key) DO UPDATE SET value='$reason_esc', updated_at=datetime('now');"
+}
+
+# Show whether a vault backup is pending.
+hexmem_vault_backup_status() {
+    hexmem_select "SELECT key, value, updated_at FROM kv_store WHERE namespace='hexmem' AND key IN ('vault_backup_needed','vault_backup_reason');"
+}
+
 # Raw query
 hexmem_query() {
     sqlite3 "$HEXMEM_DB" "$@"
@@ -174,6 +192,11 @@ hexmem_event() {
 
     hexmem_query "INSERT INTO events (event_type, category, summary, details, significance)
                   VALUES ('$etype_esc', '$category_esc', '$summary_esc', '$details_esc', $significance);"
+
+    # Trigger vault backup flag for high-significance events
+    if [[ "$significance" =~ ^[0-9]+$ ]] && (( significance >= 8 )); then
+        hexmem_mark_significant "event:$etype_esc/$category_esc sig=$significance"
+    fi
 }
 
 # Get recent events
@@ -894,6 +917,9 @@ hexmem_supersede_fact() {
     local new_value_esc=$(hexmem_sql_escape "$new_value")
     local source_esc=$(hexmem_sql_escape "$source")
 
+    # Supersession means our "current truth" changed; mark as significant.
+    hexmem_mark_significant "fact:supersede old_id=$old_id"
+
     # Get old fact details
     local old_data=$(hexmem_query "SELECT subject_entity_id, subject_text, predicate, confidence 
                                    FROM facts WHERE id = $old_id;")
@@ -1006,6 +1032,16 @@ hexmem_fact_emote() {
     local predicate_esc=$(hexmem_sql_escape "$predicate")
     local object_esc=$(hexmem_sql_escape "$object")
     local source_esc=$(hexmem_sql_escape "$source")
+
+    # Trigger vault backup flag for emotionally salient facts
+    # (arousal high OR combined salience high)
+    if awk "BEGIN{
+        v=$valence; if (v < 0) v = -v;
+        a=$arousal;
+        exit !(a >= 0.7 || (v + a) >= 1.2)
+      }" 2>/dev/null; then
+        hexmem_mark_significant "fact:emote salience valence=$valence arousal=$arousal"
+    fi
 
     local subject_id=$(hexmem_entity_id "$subject")
 

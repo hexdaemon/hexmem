@@ -2,7 +2,7 @@
     "@context": "https://w3id.org/security/v2",
     "type": "RepoManifest",
     "issuer": "did:cid:bagaaierajrr7k6izcrdfwqxpgtrobflsv5oibymfnthjazkkokaugszyh4ka",
-    "created": "2026-02-01T17:59:40Z",
+    "created": "2026-02-01T18:07:58Z",
     "repository": "https://github.com/hexdaemon/hexmem",
     "files": [
         {
@@ -22,12 +22,24 @@
             "sha256": "eb37f4f11de536c77092038b1ac7f474de0236371ac3144452a349879f578e26"
         },
         {
+            "path": "./exports/hexmem-significant-20260201-110629.json",
+            "sha256": "1f489620e3c75dba0760a6f5e32cb6ca2cfdb43af7fdddaa77273f536dbaea07"
+        },
+        {
+            "path": "./exports/hexmem-significant-20260201-110727.json",
+            "sha256": "5e781b454c18d1630c2a653b2badaf0cc6e89df26482196bfc15a27e89ca3fc5"
+        },
+        {
+            "path": "./exports/hexmem-significant-20260201-110733.json",
+            "sha256": "fcf829466c13cc945e1f33461e60355c9b463ecb2dd1054258d475648c29bf29"
+        },
+        {
             "path": "./.gitignore",
-            "sha256": "05f9010797cffb15f209da49a761de325a4c14496eccb220cb74ce74a8604b9a"
+            "sha256": "4b9aaf13d96b93929e9ff690f0a6ad7e7aa62150656deea521c093396d40b5b7"
         },
         {
             "path": "./hexmem.sh",
-            "sha256": "60de195b8eecf5e527a7cfe8b7288e3c04b9ace560dd0a58a8324e0b56a18101"
+            "sha256": "84f6a8561203f7fd6d641a9d38622931ce0bd8bda345797fe5fc4a6915fdc939"
         },
         {
             "path": "./LICENSE",
@@ -75,7 +87,7 @@
         },
         {
             "path": "./README.md",
-            "sha256": "80ceed9bac4c8f9eadbf376f294dd63a0634a055cf299e35d4f13047078a3ef4"
+            "sha256": "6e012b7332fa5f76d10f90b43600fb3b0972e7d878bbd8228311fd37ca6463ed"
         },
         {
             "path": "./review.py",
@@ -86,8 +98,20 @@
             "sha256": "3aa867eadc4fc853c00b70767870bb99b2fbbe71b246b52dcec9e852e5741176"
         },
         {
+            "path": "./scripts/create-hexmem-vault.sh",
+            "sha256": "07497f34877a02836e37adf239216ee3676ad7f58c095796977fb6de7a0fb04e"
+        },
+        {
+            "path": "./scripts/export-significant.sh",
+            "sha256": "b1b84f7dc1a49893fa08789bb6ddfe7cead73ea61509144ebf2fc0e457ef1be6"
+        },
+        {
             "path": "./scripts/sign-repo.sh",
             "sha256": "abb10db670400f6a599fbb3fb2add76103d6bc214b7a4977d2aca5cf1544d430"
+        },
+        {
+            "path": "./scripts/vault-backup.sh",
+            "sha256": "b17452f343a6c012ee66846ececc050d083768201fe8f5036ee7d765b24db714"
         },
         {
             "path": "./search.py",
@@ -100,9 +124,9 @@
     ],
     "proof": {
         "type": "EcdsaSecp256k1Signature2019",
-        "created": "2026-02-01T17:59:43.836Z",
+        "created": "2026-02-01T18:08:00.404Z",
         "verificationMethod": "did:cid:bagaaierajrr7k6izcrdfwqxpgtrobflsv5oibymfnthjazkkokaugszyh4ka#key-1",
         "proofPurpose": "assertionMethod",
-        "proofValue": "4vqJEbDdBtQA5OTv8YLUM3M36o_eTKJdnffi5o2Jn2RNkHtd0V4jeZt58MDxq0wOsVHd7qYw7U3dXOsHrP-Uow"
+        "proofValue": "jZuI0zTjvDjsI1eE5J5yQJxk5WdHHgjsGIKiaZlMfjY0bd3dW1s9obM_QjhMYUP2NldPliYABskMm4aopuxAMQ"
     }
 }

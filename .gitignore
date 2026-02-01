@@ -8,6 +8,7 @@ hexmem.db-shm
 *.bak
 *.backup
 backups/
+exports/
 
 # OS files
 .DS_Store
