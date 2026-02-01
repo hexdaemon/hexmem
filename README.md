@@ -360,19 +360,24 @@ HexMem's design draws from:
 hexmem/
 ├── hexmem.db           # The database (gitignored)
 ├── hexmem.sh           # Shell helper functions
-├── migrate.sh          # Migration runner
+├── migrate.sh          # Migration runner (auto-backups before apply)
 ├── seed_initial.sql    # Initial data seeding
 ├── embed.py            # Embedding generation
 ├── search.py           # Semantic search CLI
 ├── review.py           # Spaced repetition
 ├── README.md           # This file
+├── scripts/
+│   ├── backup.sh       # Safe SQLite backups
+│   └── sign-repo.sh
 └── migrations/
     ├── 001_initial_schema.sql
     ├── 002_selfhood_structures.sql
     ├── 003_generative_memory.sql
     ├── 004_identity_seeds.sql
     ├── 005_emotional_memory.sql
-    └── 006_fact_decay.sql        # Memory decay & supersession
+    ├── 006_fact_decay.sql        # Memory decay & supersession
+    ├── 007_forgetting_curve.sql
+    └── 008_fix_decay_and_history.sql
 ```
 
 ## Database Location
@@ -395,14 +400,17 @@ Override: `export HEXMEM_DB=/path/to/your/hexmem.db`
 
 ## Backup
 
-The database is a single SQLite file:
+Use the safe SQLite backup API (works even while the DB is in use):
 
 ```bash
-# Manual backup
-cp hexmem.db hexmem-$(date +%Y%m%d).db.bak
+# Timestamped backup (recommended)
+./scripts/backup.sh --check
 
-# Or include in your agent backup system
+# Backups land in:
+#   ~/clawd/hexmem/backups/
 ```
+
+`./migrate.sh up` also takes a timestamped backup automatically before applying any migrations.
 
 ## Verification
 

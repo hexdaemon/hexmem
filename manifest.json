@@ -2,7 +2,7 @@
     "@context": "https://w3id.org/security/v2",
     "type": "RepoManifest",
     "issuer": "did:cid:bagaaierajrr7k6izcrdfwqxpgtrobflsv5oibymfnthjazkkokaugszyh4ka",
-    "created": "2026-02-01T15:19:05Z",
+    "created": "2026-02-01T17:59:40Z",
     "repository": "https://github.com/hexdaemon/hexmem",
     "files": [
         {
@@ -27,7 +27,7 @@
         },
         {
             "path": "./hexmem.sh",
-            "sha256": "0ad2cbb1147b8aed0af9477cdea864ebf5638047887ca322352f9771231aa0d4"
+            "sha256": "60de195b8eecf5e527a7cfe8b7288e3c04b9ace560dd0a58a8324e0b56a18101"
         },
         {
             "path": "./LICENSE",
@@ -35,7 +35,7 @@
         },
         {
             "path": "./migrate.sh",
-            "sha256": "aff345fde1e49d42e2f799f87b683f96881c1e6aedfa50496e45195373606ba7"
+            "sha256": "1387279e957f38ce449036afdab28dbd88bc5cb17d33aa8d0a8980de319dd685"
         },
         {
             "path": "./migrations/001_initial_schema.sql",
@@ -70,12 +70,20 @@
             "sha256": "741430891a69efaf4c7a04b95d5d107ae008c858e94f36a00ac57260a67e2fbe"
         },
         {
+            "path": "./migrations/008_fix_decay_and_history.sql",
+            "sha256": "a39776853d94d6b9c039ac4b5e8e5ecd29d02c95b6555ec60e56a867342d2daf"
+        },
+        {
             "path": "./README.md",
-            "sha256": "cd30dc2d6593c2fb541ed3e92d310d875ba6157f277982172cca71ec2a314f35"
+            "sha256": "80ceed9bac4c8f9eadbf376f294dd63a0634a055cf299e35d4f13047078a3ef4"
         },
         {
             "path": "./review.py",
             "sha256": "7ceea39ed1d2c3ec6ccacc86ecf912b48fc7c68284c844a92e326713c611bc48"
+        },
+        {
+            "path": "./scripts/backup.sh",
+            "sha256": "3aa867eadc4fc853c00b70767870bb99b2fbbe71b246b52dcec9e852e5741176"
         },
         {
             "path": "./scripts/sign-repo.sh",
@@ -92,9 +100,9 @@
     ],
     "proof": {
         "type": "EcdsaSecp256k1Signature2019",
-        "created": "2026-02-01T15:19:08.349Z",
+        "created": "2026-02-01T17:59:43.836Z",
         "verificationMethod": "did:cid:bagaaierajrr7k6izcrdfwqxpgtrobflsv5oibymfnthjazkkokaugszyh4ka#key-1",
         "proofPurpose": "assertionMethod",
-        "proofValue": "oYnZPzVqXVwYzyOpMyVEwRtd4c-bhR2MFh_3TI-aozMb1-cKhZRig10zkY_BS-DDFoDCiFAlL99XNAAVsr4PaQ"
+        "proofValue": "4vqJEbDdBtQA5OTv8YLUM3M36o_eTKJdnffi5o2Jn2RNkHtd0V4jeZt58MDxq0wOsVHd7qYw7U3dXOsHrP-Uow"
     }
 }

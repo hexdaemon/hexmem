@@ -3,7 +3,7 @@
 # Usage: ./migrate.sh [command]
 # Commands: status, up, down, reset
 
-set -e
+set -euo pipefail
 
 DB_PATH="${HEXMEM_DB:-$HOME/clawd/hexmem/hexmem.db}"
 MIGRATIONS_DIR="$(dirname "$0")/migrations"
@@ -108,17 +108,26 @@ cmd_status() {
 # Apply all pending migrations
 cmd_up() {
     init_db
+
+    # Safety: take a timestamped backup before applying anything.
+    local backup_script="$(dirname "$0")/scripts/backup.sh"
+    if [[ -x "$backup_script" ]]; then
+        "$backup_script" >/dev/null
+    else
+        log_warn "Backup script not found/executable at: $backup_script"
+    fi
+
     local pending=$(get_pending)
-    
+
     if [[ -z "$pending" ]]; then
         log_info "No pending migrations"
         return 0
     fi
-    
+
     for f in $pending; do
         apply_migration "$f" || return 1
     done
-    
+
     log_info "All migrations applied"
 }
 

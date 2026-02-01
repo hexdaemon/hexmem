@@ -4,6 +4,15 @@
 
 export HEXMEM_DB="${HEXMEM_DB:-$HOME/clawd/hexmem/hexmem.db}"
 
+# Escape a string for safe use inside SQLite single-quoted string literals.
+# NOTE: This is not a full SQL parameterization system, but it prevents
+# common breakage/injection via apostrophes.
+hexmem_sql_escape() {
+    # Usage: hexmem_sql_escape "raw text"
+    # - doubles single quotes per SQLite rules
+    printf "%s" "${1:-}" | sed "s/'/''/g"
+}
+
 # Raw query
 hexmem_query() {
     sqlite3 "$HEXMEM_DB" "$@"
@@ -30,22 +39,28 @@ hexmem_entity() {
     local name="$2"
     local desc="${3:-}"
     local canonical=$(echo "$name" | tr '[:upper:]' '[:lower:]' | tr ' ' '_')
-    
+
+    local etype_esc=$(hexmem_sql_escape "$etype")
+    local name_esc=$(hexmem_sql_escape "$name")
+    local canonical_esc=$(hexmem_sql_escape "$canonical")
+    local desc_esc=$(hexmem_sql_escape "$desc")
+
     hexmem_query "INSERT INTO entities (entity_type, name, canonical_name, description)
-                  VALUES ('$etype', '$name', '$canonical', '$desc')
-                  ON CONFLICT(entity_type, canonical_name) 
+                  VALUES ('$etype_esc', '$name_esc', '$canonical_esc', '$desc_esc')
+                  ON CONFLICT(entity_type, canonical_name)
                   DO UPDATE SET description = COALESCE(excluded.description, description),
                                 last_seen_at = datetime('now');"
-    
+
     # Return entity ID
-    hexmem_query "SELECT id FROM entities WHERE entity_type='$etype' AND canonical_name='$canonical';"
+    hexmem_query "SELECT id FROM entities WHERE entity_type='$etype_esc' AND canonical_name='$canonical_esc';"
 }
 
 # Get entity ID by name
 hexmem_entity_id() {
     local name="$1"
     local canonical=$(echo "$name" | tr '[:upper:]' '[:lower:]' | tr ' ' '_')
-    hexmem_query "SELECT id FROM entities WHERE canonical_name='$canonical' LIMIT 1;"
+    local canonical_esc=$(hexmem_sql_escape "$canonical")
+    hexmem_query "SELECT id FROM entities WHERE canonical_name='$canonical_esc' LIMIT 1;"
 }
 
 # ============================================================================
@@ -59,31 +74,84 @@ hexmem_fact() {
     local predicate="$2"
     local object="$3"
     local source="${4:-direct}"
-    
+
+    local predicate_esc=$(hexmem_sql_escape "$predicate")
+    local object_esc=$(hexmem_sql_escape "$object")
+    local source_esc=$(hexmem_sql_escape "$source")
+
     # Try to resolve subject as entity
     local subject_id=$(hexmem_entity_id "$subject")
-    
+
     if [[ -n "$subject_id" ]]; then
         hexmem_query "INSERT INTO facts (subject_entity_id, predicate, object_text, source)
-                      VALUES ($subject_id, '$predicate', '$object', '$source');"
+                      VALUES ($subject_id, '$predicate_esc', '$object_esc', '$source_esc');"
     else
+        local subject_esc=$(hexmem_sql_escape "$subject")
         hexmem_query "INSERT INTO facts (subject_text, predicate, object_text, source)
-                      VALUES ('$subject', '$predicate', '$object', '$source');"
+                      VALUES ('$subject_esc', '$predicate_esc', '$object_esc', '$source_esc');"
     fi
 }
 
 # Get facts about a subject
 hexmem_facts_about() {
     local subject="$1"
+    local subject_esc=$(hexmem_sql_escape "$subject")
     local subject_id=$(hexmem_entity_id "$subject")
-    
+
     if [[ -n "$subject_id" ]]; then
         hexmem_select "SELECT predicate, object, confidence, source FROM v_facts_readable 
-                       WHERE subject = '$subject' OR subject_entity_id = $subject_id;"
+                       WHERE subject = '$subject_esc' OR subject_entity_id = $subject_id;"
     else
         hexmem_select "SELECT predicate, object, confidence, source FROM v_facts_readable 
-                       WHERE subject = '$subject';"
+                       WHERE subject = '$subject_esc';"
     fi
+}
+
+# Get the current (active) fact value for a subject + predicate.
+# Usage: hexmem_current_fact <subject> <predicate>
+hexmem_current_fact() {
+    local subject="$1"
+    local predicate="$2"
+
+    local predicate_esc=$(hexmem_sql_escape "$predicate")
+    local subject_id=$(hexmem_entity_id "$subject")
+
+    if [[ -n "$subject_id" ]]; then
+        hexmem_select "SELECT id, predicate, object_text, source, created_at, last_accessed_at, access_count
+                       FROM facts
+                       WHERE subject_entity_id = $subject_id
+                         AND predicate = '$predicate_esc'
+                         AND status = 'active'
+                       ORDER BY created_at DESC
+                       LIMIT 1;"
+    else
+        local subject_esc=$(hexmem_sql_escape "$subject")
+        hexmem_select "SELECT id, predicate, object_text, source, created_at, last_accessed_at, access_count
+                       FROM facts
+                       WHERE subject_text = '$subject_esc'
+                         AND predicate = '$predicate_esc'
+                         AND status = 'active'
+                       ORDER BY created_at DESC
+                       LIMIT 1;"
+    fi
+}
+
+# Walk a supersession chain (newest -> oldest) for a fact id.
+# Usage: hexmem_fact_chain <fact_id>
+hexmem_fact_chain() {
+    local fact_id="$1"
+    hexmem_select "WITH RECURSIVE chain(id, superseded_by, predicate, object_text, status, created_at, depth) AS (
+                     SELECT id, superseded_by, predicate, object_text, status, created_at, 0
+                     FROM facts
+                     WHERE id = $fact_id
+                     UNION ALL
+                     SELECT f.id, f.superseded_by, f.predicate, f.object_text, f.status, f.created_at, c.depth + 1
+                     FROM facts f
+                     JOIN chain c ON f.superseded_by = c.id
+                   )
+                   SELECT depth, id, predicate, object_text, status, created_at, superseded_by
+                   FROM chain
+                   ORDER BY depth ASC;"
 }
 
 # ============================================================================
@@ -98,19 +166,25 @@ hexmem_event() {
     local summary="$3"
     local details="${4:-}"
     local significance="${5:-5}"
-    
+
+    local etype_esc=$(hexmem_sql_escape "$etype")
+    local category_esc=$(hexmem_sql_escape "$category")
+    local summary_esc=$(hexmem_sql_escape "$summary")
+    local details_esc=$(hexmem_sql_escape "$details")
+
     hexmem_query "INSERT INTO events (event_type, category, summary, details, significance)
-                  VALUES ('$etype', '$category', '$summary', '$details', $significance);"
+                  VALUES ('$etype_esc', '$category_esc', '$summary_esc', '$details_esc', $significance);"
 }
 
 # Get recent events
 hexmem_recent_events() {
     local limit="${1:-10}"
     local category="${2:-}"
-    
+
     if [[ -n "$category" ]]; then
+        local category_esc=$(hexmem_sql_escape "$category")
         hexmem_select "SELECT occurred_at, event_type, category, summary 
-                       FROM events WHERE category='$category'
+                       FROM events WHERE category='$category_esc'
                        ORDER BY occurred_at DESC LIMIT $limit;"
     else
         hexmem_select "SELECT occurred_at, event_type, category, summary 
@@ -128,16 +202,21 @@ hexmem_lesson() {
     local domain="$1"
     local lesson="$2"
     local context="${3:-}"
-    
+
+    local domain_esc=$(hexmem_sql_escape "$domain")
+    local lesson_esc=$(hexmem_sql_escape "$lesson")
+    local context_esc=$(hexmem_sql_escape "$context")
+
     hexmem_query "INSERT INTO lessons (domain, lesson, context)
-                  VALUES ('$domain', '$lesson', '$context');"
+                  VALUES ('$domain_esc', '$lesson_esc', '$context_esc');"
 }
 
 # Get lessons in a domain
 hexmem_lessons_in() {
     local domain="$1"
+    local domain_esc=$(hexmem_sql_escape "$domain")
     hexmem_select "SELECT lesson, context, times_applied, confidence 
-                   FROM lessons WHERE domain='$domain' ORDER BY confidence DESC;"
+                   FROM lessons WHERE domain='$domain_esc' ORDER BY confidence DESC;"
 }
 
 # Mark a lesson as applied
@@ -158,13 +237,17 @@ hexmem_task() {
     local desc="${2:-}"
     local priority="${3:-5}"
     local due="${4:-}"
-    
+
+    local title_esc=$(hexmem_sql_escape "$title")
+    local desc_esc=$(hexmem_sql_escape "$desc")
+    local due_esc=$(hexmem_sql_escape "$due")
+
     if [[ -n "$due" ]]; then
         hexmem_query "INSERT INTO tasks (title, description, priority, due_at)
-                      VALUES ('$title', '$desc', $priority, '$due');"
+                      VALUES ('$title_esc', '$desc_esc', $priority, '$due_esc');"
     else
         hexmem_query "INSERT INTO tasks (title, description, priority)
-                      VALUES ('$title', '$desc', $priority);"
+                      VALUES ('$title_esc', '$desc_esc', $priority);"
     fi
 }
 
@@ -807,7 +890,10 @@ hexmem_supersede_fact() {
     local old_id="$1"
     local new_value="$2"
     local source="${3:-supersession}"
-    
+
+    local new_value_esc=$(hexmem_sql_escape "$new_value")
+    local source_esc=$(hexmem_sql_escape "$source")
+
     # Get old fact details
     local old_data=$(hexmem_query "SELECT subject_entity_id, subject_text, predicate, confidence 
                                    FROM facts WHERE id = $old_id;")
@@ -822,8 +908,8 @@ hexmem_supersede_fact() {
         subject_entity_id, subject_text, predicate, object_text, 
         confidence, source, status, last_accessed_at
     ) SELECT 
-        subject_entity_id, subject_text, predicate, '$new_value',
-        confidence, '$source', 'active', datetime('now')
+        subject_entity_id, subject_text, predicate, '$new_value_esc',
+        confidence, '$source_esc', 'active', datetime('now')
     FROM facts WHERE id = $old_id
     RETURNING id;")
     
@@ -872,13 +958,14 @@ hexmem_prioritized_facts() {
 # View fact supersession history
 hexmem_fact_history() {
     local subject="$1"
+    local subject_esc=$(hexmem_sql_escape "$subject")
     hexmem_select "SELECT current_id, predicate, current_value, current_since,
                           previous_id, previous_value, previous_from
                    FROM v_fact_history 
                    WHERE current_id IN (
                        SELECT id FROM facts 
-                       WHERE subject_text LIKE '%$subject%' 
-                          OR subject_entity_id IN (SELECT id FROM entities WHERE name LIKE '%$subject%')
+                       WHERE subject_text LIKE '%$subject_esc%'
+                          OR subject_entity_id IN (SELECT id FROM entities WHERE name LIKE '%$subject_esc%')
                    );"
 }
 
@@ -915,18 +1002,23 @@ hexmem_fact_emote() {
     local valence="$4"
     local arousal="$5"
     local source="${6:-direct}"
-    
+
+    local predicate_esc=$(hexmem_sql_escape "$predicate")
+    local object_esc=$(hexmem_sql_escape "$object")
+    local source_esc=$(hexmem_sql_escape "$source")
+
     local subject_id=$(hexmem_entity_id "$subject")
-    
+
     if [[ -n "$subject_id" ]]; then
         hexmem_query "INSERT INTO facts (subject_entity_id, predicate, object_text, source, 
                                          emotional_valence, emotional_arousal, last_accessed_at)
-                      VALUES ($subject_id, '$predicate', '$object', '$source', 
+                      VALUES ($subject_id, '$predicate_esc', '$object_esc', '$source_esc', 
                               $valence, $arousal, datetime('now'));"
     else
+        local subject_esc=$(hexmem_sql_escape "$subject")
         hexmem_query "INSERT INTO facts (subject_text, predicate, object_text, source,
                                          emotional_valence, emotional_arousal, last_accessed_at)
-                      VALUES ('$subject', '$predicate', '$object', '$source',
+                      VALUES ('$subject_esc', '$predicate_esc', '$object_esc', '$source_esc',
                               $valence, $arousal, datetime('now'));"
     fi
 }
