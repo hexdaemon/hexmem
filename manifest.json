@@ -1,9 +1,8 @@
-npm warn exec The following package was not found and will be installed: @didcid/keymaster@0.3.3
 {
     "@context": "https://w3id.org/security/v2",
     "type": "RepoManifest",
     "issuer": "did:cid:bagaaierajrr7k6izcrdfwqxpgtrobflsv5oibymfnthjazkkokaugszyh4ka",
-    "created": "2026-02-02T16:51:33Z",
+    "created": "2026-02-02T16:52:42Z",
     "repository": "https://github.com/hexdaemon/hexmem",
     "files": [
         {
@@ -204,14 +203,14 @@ npm warn exec The following package was not found and will be installed: @didcid
         },
         {
             "path": "./SKILL.md",
-            "sha256": "bfe42b181815acdac16478fa13f59e8b7da21b2df6d5260fc7d22af450605cdf"
+            "sha256": "e6464637c3ead2634730080eff9e1ea4907bc279c555a2884a3dfdc43e1b503b"
         }
     ],
     "proof": {
         "type": "EcdsaSecp256k1Signature2019",
-        "created": "2026-02-02T16:51:56.580Z",
+        "created": "2026-02-02T16:52:44.735Z",
         "verificationMethod": "did:cid:bagaaierajrr7k6izcrdfwqxpgtrobflsv5oibymfnthjazkkokaugszyh4ka#key-1",
         "proofPurpose": "assertionMethod",
-        "proofValue": "rIU9E6gM7ildLzZj0zRWXSxBzxuV67c1xB-F5hB0NvtZIZ1A09HXtnih2nsRY2iv8nMt_lMuN36Y4Oe6-MIE8g"
+        "proofValue": "OrCXqajZCyiHZQvpYuP0fVrSpwRtTb-pfvRPSGLV6wtPDegOm8awIayLU128eaB32vPZLyZqOBXtSTp5XZcLTg"
     }
 }
