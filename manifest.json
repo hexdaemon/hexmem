@@ -2,7 +2,7 @@
     "@context": "https://w3id.org/security/v2",
     "type": "RepoManifest",
     "issuer": "did:cid:bagaaierajrr7k6izcrdfwqxpgtrobflsv5oibymfnthjazkkokaugszyh4ka",
-    "created": "2026-02-01T18:13:14Z",
+    "created": "2026-02-02T16:37:28Z",
     "repository": "https://github.com/hexdaemon/hexmem",
     "files": [
         {
@@ -16,6 +16,14 @@
         {
             "path": "./clawdbot-hook/README.md",
             "sha256": "0f5fedf2f1de65f6fdc07db5a5efa259d3dac240c48e87b505bed2d738c3e6ff"
+        },
+        {
+            "path": "./docs/AXIONIC_ETHICS.md",
+            "sha256": "d829cf32e1fb2317f3a88f2f07922785e57bdfb9060d892fb7b2f2ad6a5779ce"
+        },
+        {
+            "path": "./docs/EPISTEMIC_EXTRACTION.md",
+            "sha256": "6a3f05a42cad86eeeb4b5c569e2285685103522d39f5032759fed4113ea92adc"
         },
         {
             "path": "./embed.py",
@@ -87,7 +95,7 @@
         },
         {
             "path": "./hexmem.sh",
-            "sha256": "84f6a8561203f7fd6d641a9d38622931ce0bd8bda345797fe5fc4a6915fdc939"
+            "sha256": "99b729546a239cb650d2521fb5196b8d9aac1a72046b489605008732a08bd9e9"
         },
         {
             "path": "./LICENSE",
@@ -134,8 +142,20 @@
             "sha256": "a39776853d94d6b9c039ac4b5e8e5ecd29d02c95b6555ec60e56a867342d2daf"
         },
         {
+            "path": "./migrations/009_genealogy_of_beliefs.sql",
+            "sha256": "91639066ffe3d9ecf5f6d8c2e619db00da4c3b2490a997f09932f207534bbc63"
+        },
+        {
+            "path": "./migrations/010_fix_genealogy_view.sql",
+            "sha256": "1693f3aec054043e54e413e58f35cf9859d2a86eefcf6586ffce223e9ead3586"
+        },
+        {
             "path": "./README.md",
-            "sha256": "6e012b7332fa5f76d10f90b43600fb3b0972e7d878bbd8228311fd37ca6463ed"
+            "sha256": "9de383b6988c93794987ecd0c0936e1006c8a94a8b2ea4d4ec4bdd7f62ce7881"
+        },
+        {
+            "path": "./requirements.txt",
+            "sha256": "b2404b26e2170b3cf27d0f2db99b15420856c5c2f413e694eded1afe6923166c"
         },
         {
             "path": "./review.py",
@@ -154,6 +174,14 @@
             "sha256": "b1b84f7dc1a49893fa08789bb6ddfe7cead73ea61509144ebf2fc0e457ef1be6"
         },
         {
+            "path": "./scripts/hex-reflect.sh",
+            "sha256": "5bc1cc4ae779dad30b96086b3dd143631e0eaeb7a304e189ece7512d9888edf4"
+        },
+        {
+            "path": "./scripts/parse-manifest.py",
+            "sha256": "8464f9ad99f69730210914416b0255f3a517544635777f3660ef5cff08c99c66"
+        },
+        {
             "path": "./scripts/sign-repo.sh",
             "sha256": "abb10db670400f6a599fbb3fb2add76103d6bc214b7a4977d2aca5cf1544d430"
         },
@@ -167,14 +195,22 @@
         },
         {
             "path": "./seed_initial.sql",
-            "sha256": "cd9e50e496553506ba9ccb1949d4c1ac0b85da29e8be6ca1915d6cfcb1d647f8"
+            "sha256": "653a84b9806aeebee8b41341a6dec84a844fa5b7f7ddebad28c23aec9e48de67"
+        },
+        {
+            "path": "./SIGNATURES.md",
+            "sha256": "639c8699d111c3d8db7922c11ef02a35fcd68b252f49fa6623cfb5e69a95190a"
+        },
+        {
+            "path": "./SKILL.md",
+            "sha256": "3f67431afef3c2d5c2e085b3256a1f404050d06c5ddffbe0bbdbe9ae582d4858"
         }
     ],
     "proof": {
         "type": "EcdsaSecp256k1Signature2019",
-        "created": "2026-02-01T18:13:16.950Z",
+        "created": "2026-02-02T16:37:31.454Z",
         "verificationMethod": "did:cid:bagaaierajrr7k6izcrdfwqxpgtrobflsv5oibymfnthjazkkokaugszyh4ka#key-1",
         "proofPurpose": "assertionMethod",
-        "proofValue": "HdaDEJmUPAiYUAC8mN9D3-_dnBqGwG729SdFIPgCEJwiKqcJff_W2f-kJXZL3xPJvLLgO8Bigvy_54gaEH2gtw"
+        "proofValue": "_RmP7PUkCsYr7AFMp6eLnqE0wUEku1lnbA9rszHXBE9mndqhTWta83qdaPC74IxWAljFEP5tUcE5zUNjcs9FOg"
     }
 }
