@@ -249,9 +249,23 @@ HexMem can backup everything needed to restore an agent's identity and self:
 - **Goals & tasks**: Active aspirations and work
 - **Narrative threads**: Life stories and temporal periods
 
-### Archon Integration (Recommended)
+### Basic Backups (Always Available)
 
-For cryptographically-signed, decentralized identity backups, integrate with Archon:
+Simple local backups work out of the box:
+
+```bash
+# Manual backup (timestamped)
+~/clawd/hexmem/scripts/backup.sh
+
+# Backups saved to: ~/clawd/hexmem/backups/
+# Format: hexmem-YYYYMMDD-HHMMSS.db
+```
+
+This is sufficient for most use cases. For enhanced security (cryptographic signing + decentralized storage), see Archon integration below.
+
+### Archon Integration (Optional)
+
+For cryptographically-signed, decentralized identity backups, optionally integrate with Archon:
 
 **1. Check if Archon skill is available:**
 
@@ -327,19 +341,13 @@ cp ~/clawd/hexmem/hexmem.db ~/clawd/hexmem/hexmem.db.old
 cp restore.db ~/clawd/hexmem/hexmem.db
 ```
 
-### Without Archon (Basic Backups)
+**Benefits of Archon integration:**
+- Cryptographic signing with DID
+- Decentralized storage (not tied to one machine)
+- Privacy-aware exports (significant events only)
+- Verifiable provenance
 
-If Archon is not available, use local backups:
-
-```bash
-# Manual backup
-~/clawd/hexmem/scripts/backup.sh
-
-# Backups saved to: ~/clawd/hexmem/backups/
-# Format: hexmem-YYYYMMDD-HHMMSS.db
-```
-
-**Limitation**: Local backups lack cryptographic signing and decentralized storage. For agent identity preservation, Archon integration is strongly recommended.
+Basic backups are fine for most agents. Use Archon if you need decentralized identity infrastructure.
 
 ## Additional Resources
 
