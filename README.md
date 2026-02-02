@@ -434,7 +434,13 @@ Use the safe SQLite backup API (works even while the DB is in use):
 
 ### Archon Vault Backups (Optional)
 
-For cryptographically-signed, decentralized identity backups:
+For cryptographically-signed, decentralized identity backups, you'll need Archon installed.
+
+**Install Archon:**
+- **Public API only**: Install the [archon-skill](https://github.com/hexdaemon/archon-skill) for read-only DID resolution
+- **Full functionality (vaults, signing)**: Run a local Archon node from [github.com/archetech/archon](https://github.com/archetech/archon)
+
+Once Archon is configured:
 
 ```bash
 # Check if Archon is available
