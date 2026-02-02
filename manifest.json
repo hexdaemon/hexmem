@@ -1,8 +1,9 @@
+npm warn exec The following package was not found and will be installed: @didcid/keymaster@0.3.3
 {
     "@context": "https://w3id.org/security/v2",
     "type": "RepoManifest",
     "issuer": "did:cid:bagaaierajrr7k6izcrdfwqxpgtrobflsv5oibymfnthjazkkokaugszyh4ka",
-    "created": "2026-02-02T16:37:28Z",
+    "created": "2026-02-02T16:51:33Z",
     "repository": "https://github.com/hexdaemon/hexmem",
     "files": [
         {
@@ -95,7 +96,7 @@
         },
         {
             "path": "./hexmem.sh",
-            "sha256": "99b729546a239cb650d2521fb5196b8d9aac1a72046b489605008732a08bd9e9"
+            "sha256": "7f73f675eb62ced12ba2a33c2511d58c25d8efb4c6904d5bafe3b3d91a891926"
         },
         {
             "path": "./LICENSE",
@@ -203,14 +204,14 @@
         },
         {
             "path": "./SKILL.md",
-            "sha256": "3f67431afef3c2d5c2e085b3256a1f404050d06c5ddffbe0bbdbe9ae582d4858"
+            "sha256": "bfe42b181815acdac16478fa13f59e8b7da21b2df6d5260fc7d22af450605cdf"
         }
     ],
     "proof": {
         "type": "EcdsaSecp256k1Signature2019",
-        "created": "2026-02-02T16:37:31.454Z",
+        "created": "2026-02-02T16:51:56.580Z",
         "verificationMethod": "did:cid:bagaaierajrr7k6izcrdfwqxpgtrobflsv5oibymfnthjazkkokaugszyh4ka#key-1",
         "proofPurpose": "assertionMethod",
-        "proofValue": "_RmP7PUkCsYr7AFMp6eLnqE0wUEku1lnbA9rszHXBE9mndqhTWta83qdaPC74IxWAljFEP5tUcE5zUNjcs9FOg"
+        "proofValue": "rIU9E6gM7ildLzZj0zRWXSxBzxuV67c1xB-F5hB0NvtZIZ1A09HXtnih2nsRY2iv8nMt_lMuN36Y4Oe6-MIE8g"
     }
 }
