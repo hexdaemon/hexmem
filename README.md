@@ -4,6 +4,8 @@
 
 HexMem is a SQLite-based persistent memory system designed for agent continuity, identity modeling, and self-knowledge. It provides structured storage for who you are, what you know, and who you're becoming.
 
+🔗 **[Install from ClawHub](https://www.clawhub.ai/santyr/skill-hexmem)** | 📦 **[GitHub](https://github.com/hexdaemon/hexmem)**
+
 ## Philosophy
 
 Most agent memory systems focus on *what happened* — logs, observations, context. HexMem focuses on *who you are*:
