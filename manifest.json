@@ -2,7 +2,7 @@
     "@context": "https://w3id.org/security/v2",
     "type": "RepoManifest",
     "issuer": "did:cid:bagaaierajrr7k6izcrdfwqxpgtrobflsv5oibymfnthjazkkokaugszyh4ka",
-    "created": "2026-02-02T16:57:25Z",
+    "created": "2026-02-02T17:20:52Z",
     "repository": "https://github.com/hexdaemon/hexmem",
     "files": [
         {
@@ -58,6 +58,10 @@
             "sha256": "40469f0f6b166c274164a6fd6a4c91fa29d2f3198d0231b05cdceee2c8516681"
         },
         {
+            "path": "./exports/hexmem-significant-20260202-101602.json",
+            "sha256": "23d1fc37bd2280090ec9a8ee50b3406ed6993e538527f1705537fefc844be8d2"
+        },
+        {
             "path": "./exports/hexmem-vault-meta-20260201-111027.json",
             "sha256": "5f35acba54ec8d1c159f085a036db6fb2e4beddd30c02cb73cb7b6c2670de1f5"
         },
@@ -88,6 +92,14 @@
         {
             "path": "./exports/hexmem-vault-meta-20260201181223.json.signed.json",
             "sha256": "a6ea2a166be1fd61980d8df43edf0e4c75bbb45e983730c70ba7f202075a8ea7"
+        },
+        {
+            "path": "./exports/hexmem-vault-meta-20260202171602.json",
+            "sha256": "21e8ef1012cef1395542c9ae3414635b060bda8cba689ba6a0694055708070c9"
+        },
+        {
+            "path": "./exports/hexmem-vault-meta-20260202171602.json.signed.json",
+            "sha256": "ab5f44b85c1c838f0dada334f4794a9e9083676e617bb9682782b11f3e4d388d"
         },
         {
             "path": "./.gitignore",
@@ -151,7 +163,7 @@
         },
         {
             "path": "./README.md",
-            "sha256": "a0f8a7832ba17d1da1967e40c601d9b34895a569731d079856574edfdbb86d95"
+            "sha256": "4a3e5ad9ff34b120274d66632a4baafea80a546499bc94f9c0b38e89847cc911"
         },
         {
             "path": "./requirements.txt",
@@ -208,9 +220,9 @@
     ],
     "proof": {
         "type": "EcdsaSecp256k1Signature2019",
-        "created": "2026-02-02T16:57:27.929Z",
+        "created": "2026-02-02T17:20:54.609Z",
         "verificationMethod": "did:cid:bagaaierajrr7k6izcrdfwqxpgtrobflsv5oibymfnthjazkkokaugszyh4ka#key-1",
         "proofPurpose": "assertionMethod",
-        "proofValue": "nEhhr7Ey5bIQuNMT9bza7iK9gDz90zGIJbKioviAVoFu2pFEUZGT2UUH1XaNcfLpmi0xTmoCqz5H7neJpu5pTg"
+        "proofValue": "LXFaCVZ6PHfImKuLSDv_DAzsOGJEdrIFrSXyzlTQOuRzprhMxHFTSrWUf8ikeQWlMH8cNpwAvsNBjkoMypuW1A"
     }
 }
