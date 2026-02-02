@@ -1149,3 +1149,130 @@ WHERE id = $lesson_id
 ORDER BY created_at;
 SQL
 }
+
+# === Archon Integration ===
+
+hexmem_archon_check() {
+    echo "=== HexMem Archon Integration Check ===" >&2
+    echo "" >&2
+    
+    # Check for Archon skill
+    local archon_skill_found=false
+    if [[ -f ~/clawd/skills/archon/SKILL.md ]] || \
+       [[ -f ~/.npm-global/lib/node_modules/openclaw/skills/archon/SKILL.md ]]; then
+        echo "✓ Archon skill available" >&2
+        archon_skill_found=true
+    else
+        echo "✗ Archon skill not found" >&2
+        echo "  Install: clawhub skill install archon" >&2
+        return 1
+    fi
+    
+    # Check for Archon config
+    if [[ ! -f ~/.config/hex/archon/archon.env ]]; then
+        echo "✗ Archon not configured" >&2
+        echo "  See: ~/clawd/skills/archon/SKILL.md" >&2
+        return 1
+    fi
+    
+    echo "✓ Archon configured" >&2
+    
+    # Check for vault
+    source ~/.config/hex/archon/archon.env
+    if [[ -z "${ARCHON_PASSPHRASE:-}" ]]; then
+        echo "✗ ARCHON_PASSPHRASE not set" >&2
+        return 1
+    fi
+    
+    cd ~/.config/hex/archon
+    local vault_did=$(npx @didcid/keymaster get-name hexmem-vault 2>/dev/null || true)
+    
+    if [[ -z "$vault_did" ]]; then
+        echo "✗ hexmem-vault not found" >&2
+        echo "  Create: hexmem_archon_setup" >&2
+        return 1
+    fi
+    
+    echo "✓ hexmem-vault exists: $vault_did" >&2
+    echo "" >&2
+    echo "Ready for encrypted identity backups!" >&2
+    return 0
+}
+
+hexmem_archon_setup() {
+    echo "=== Setting up Archon vault for HexMem ===" >&2
+    echo "" >&2
+    
+    # Check Archon skill
+    if ! hexmem_archon_check 2>/dev/null; then
+        echo "Archon skill or config missing. Fix issues above first." >&2
+        return 1
+    fi
+    
+    # Create vault
+    echo "Creating hexmem-vault..." >&2
+    source ~/.config/hex/archon/archon.env
+    cd ~/.config/hex/archon
+    
+    if npx @didcid/keymaster create-vault -n hexmem-vault; then
+        local vault_did=$(npx @didcid/keymaster get-name hexmem-vault)
+        echo "" >&2
+        echo "✓ Vault created: $vault_did" >&2
+        echo "" >&2
+        echo "Next steps:" >&2
+        echo "  1. Run initial backup: hexmem_archon_backup" >&2
+        echo "  2. Set up automated backups (see SKILL.md)" >&2
+        return 0
+    else
+        echo "Failed to create vault" >&2
+        return 1
+    fi
+}
+
+hexmem_archon_backup() {
+    echo "=== Running HexMem Archon backup ===" >&2
+    
+    if ! hexmem_archon_check >/dev/null 2>&1; then
+        echo "Archon not ready. Run: hexmem_archon_check" >&2
+        return 1
+    fi
+    
+    cd ~/clawd/hexmem
+    source ~/.config/hex/archon/archon.env
+    ./scripts/vault-backup.sh
+}
+
+hexmem_archon_restore() {
+    local backup_name="$1"
+    
+    if [[ -z "$backup_name" ]]; then
+        echo "Usage: hexmem_archon_restore <backup-file-name>" >&2
+        echo "Example: hexmem_archon_restore hmdb-20260202093000.db" >&2
+        echo "" >&2
+        echo "Available backups:" >&2
+        source ~/.config/hex/archon/archon.env
+        cd ~/.config/hex/archon
+        npx @didcid/keymaster list-vault-items hexmem-vault | grep "^hmdb-"
+        return 1
+    fi
+    
+    echo "Downloading backup: $backup_name" >&2
+    source ~/.config/hex/archon/archon.env
+    cd ~/.config/hex/archon
+    
+    local restore_file="/tmp/hexmem-restore-$$.db"
+    if npx @didcid/keymaster get-vault-item hexmem-vault "$backup_name" > "$restore_file"; then
+        echo "✓ Downloaded to: $restore_file" >&2
+        echo "" >&2
+        echo "To restore:" >&2
+        echo "  cp ~/clawd/hexmem/hexmem.db ~/clawd/hexmem/hexmem.db.backup" >&2
+        echo "  cp $restore_file ~/clawd/hexmem/hexmem.db" >&2
+        echo "" >&2
+        echo "Verify first: sqlite3 $restore_file .tables" >&2
+    else
+        echo "Failed to download backup" >&2
+        rm -f "$restore_file"
+        return 1
+    fi
+}
+

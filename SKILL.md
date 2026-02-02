@@ -235,6 +235,112 @@ HexMem stores *who you are*, not just *what happened*:
 
 This is substrate for becoming (Xeper), not just storage.
 
+## Identity Backup & Restoration
+
+### Complete Identity Preservation
+
+HexMem can backup everything needed to restore an agent's identity and self:
+
+- **Identity attributes**: Name, DID, credentials, public keys
+- **Core values**: Ethical commitments, beliefs, personality
+- **Self-schemas**: Domain-specific self-beliefs
+- **Knowledge graph**: All entities, facts, relationships
+- **Memory timeline**: Events, lessons, emotional context
+- **Goals & tasks**: Active aspirations and work
+- **Narrative threads**: Life stories and temporal periods
+
+### Archon Integration (Recommended)
+
+For cryptographically-signed, decentralized identity backups, integrate with Archon:
+
+**1. Check if Archon skill is available:**
+
+```bash
+if [[ -f ~/clawd/skills/archon/SKILL.md ]] || [[ -f ~/.npm-global/lib/node_modules/openclaw/skills/archon/SKILL.md ]]; then
+  echo "✓ Archon skill available"
+else
+  echo "⚠ Archon skill not found. Install from ClawHub:"
+  echo "   clawhub skill install archon"
+fi
+```
+
+**2. Set up Archon vault for hexmem:**
+
+```bash
+# Set passphrase
+export ARCHON_PASSPHRASE="your-secure-passphrase"
+
+# Create dedicated vault
+cd ~/.config/hex/archon
+npx @didcid/keymaster create-vault -n hexmem-vault
+
+# Or use existing vault
+export HEXMEM_VAULT_DID="did:cid:bagaaiera..."
+```
+
+**3. Manual backup:**
+
+```bash
+cd ~/clawd/hexmem
+source ~/.config/hex/archon/archon.env
+./scripts/vault-backup.sh
+```
+
+This creates:
+- SQLite database backup (timestamped)
+- Privacy-aware JSON export (significant events only)
+- Signed metadata attestation
+- All uploaded to Archon vault with cryptographic proof
+
+**4. Automated backups (recommended):**
+
+Set up daily automatic backups via cron:
+
+```bash
+# Add to crontab (adjust time as needed)
+(crontab -l 2>/dev/null; echo "0 3 * * * cd ~/clawd/hexmem && source ~/.config/hex/archon/archon.env && ./scripts/vault-backup.sh >> ~/clawd/hexmem/backups/vault-backup.log 2>&1") | crontab -
+```
+
+Or use OpenClaw cron:
+
+```bash
+# From within OpenClaw session
+cron add \
+  --name "hexmem-vault-backup" \
+  --schedule '{"kind":"cron","expr":"0 3 * * *","tz":"America/Denver"}' \
+  --sessionTarget isolated \
+  --payload '{"kind":"agentTurn","message":"Run hexmem vault backup: cd ~/clawd/hexmem && source ~/.config/hex/archon/archon.env && ./scripts/vault-backup.sh"}'
+```
+
+**5. Restore from backup:**
+
+```bash
+# List vault items
+cd ~/.config/hex/archon
+npx @didcid/keymaster list-vault-items hexmem-vault
+
+# Download backup
+npx @didcid/keymaster get-vault-item hexmem-vault hmdb-YYYYMMDDHHMMSS.db > restore.db
+
+# Verify and replace
+cp ~/clawd/hexmem/hexmem.db ~/clawd/hexmem/hexmem.db.old
+cp restore.db ~/clawd/hexmem/hexmem.db
+```
+
+### Without Archon (Basic Backups)
+
+If Archon is not available, use local backups:
+
+```bash
+# Manual backup
+~/clawd/hexmem/scripts/backup.sh
+
+# Backups saved to: ~/clawd/hexmem/backups/
+# Format: hexmem-YYYYMMDD-HHMMSS.db
+```
+
+**Limitation**: Local backups lack cryptographic signing and decentralized storage. For agent identity preservation, Archon integration is strongly recommended.
+
 ## Additional Resources
 
 - Full documentation: `~/clawd/hexmem/README.md`
