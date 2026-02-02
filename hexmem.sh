@@ -1156,6 +1156,8 @@ hexmem_archon_check() {
     echo "=== HexMem Archon Integration Check ===" >&2
     echo "" >&2
     
+    local ARCHON_CONFIG_DIR="${ARCHON_CONFIG_DIR:-$HOME/.config/archon}"
+    
     # Check for Archon skill
     local archon_skill_found=false
     if [[ -f ~/clawd/skills/archon/SKILL.md ]] || \
@@ -1169,22 +1171,22 @@ hexmem_archon_check() {
     fi
     
     # Check for Archon config
-    if [[ ! -f ~/.config/hex/archon/archon.env ]]; then
-        echo "✗ Archon not configured" >&2
-        echo "  See: ~/clawd/skills/archon/SKILL.md" >&2
+    if [[ ! -f "$ARCHON_CONFIG_DIR/archon.env" ]]; then
+        echo "✗ Archon not configured at $ARCHON_CONFIG_DIR" >&2
+        echo "  See Archon skill documentation" >&2
         return 1
     fi
     
     echo "✓ Archon configured" >&2
     
     # Check for vault
-    source ~/.config/hex/archon/archon.env
+    source "$ARCHON_CONFIG_DIR/archon.env"
     if [[ -z "${ARCHON_PASSPHRASE:-}" ]]; then
         echo "✗ ARCHON_PASSPHRASE not set" >&2
         return 1
     fi
     
-    cd ~/.config/hex/archon
+    cd "$ARCHON_CONFIG_DIR"
     local vault_did=$(npx @didcid/keymaster get-name hexmem-vault 2>/dev/null || true)
     
     if [[ -z "$vault_did" ]]; then
@@ -1203,6 +1205,8 @@ hexmem_archon_setup() {
     echo "=== Setting up Archon vault for HexMem ===" >&2
     echo "" >&2
     
+    local ARCHON_CONFIG_DIR="${ARCHON_CONFIG_DIR:-$HOME/.config/archon}"
+    
     # Check Archon skill
     if ! hexmem_archon_check 2>/dev/null; then
         echo "Archon skill or config missing. Fix issues above first." >&2
@@ -1211,8 +1215,8 @@ hexmem_archon_setup() {
     
     # Create vault
     echo "Creating hexmem-vault..." >&2
-    source ~/.config/hex/archon/archon.env
-    cd ~/.config/hex/archon
+    source "$ARCHON_CONFIG_DIR/archon.env"
+    cd "$ARCHON_CONFIG_DIR"
     
     if npx @didcid/keymaster create-vault -n hexmem-vault; then
         local vault_did=$(npx @didcid/keymaster get-name hexmem-vault)
@@ -1232,41 +1236,45 @@ hexmem_archon_setup() {
 hexmem_archon_backup() {
     echo "=== Running HexMem Archon backup ===" >&2
     
+    local ARCHON_CONFIG_DIR="${ARCHON_CONFIG_DIR:-$HOME/.config/archon}"
+    local HEXMEM_ROOT="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+    
     if ! hexmem_archon_check >/dev/null 2>&1; then
         echo "Archon not ready. Run: hexmem_archon_check" >&2
         return 1
     fi
     
-    cd ~/clawd/hexmem
-    source ~/.config/hex/archon/archon.env
+    cd "$HEXMEM_ROOT"
+    source "$ARCHON_CONFIG_DIR/archon.env"
     ./scripts/vault-backup.sh
 }
 
 hexmem_archon_restore() {
     local backup_name="$1"
+    local ARCHON_CONFIG_DIR="${ARCHON_CONFIG_DIR:-$HOME/.config/archon}"
     
     if [[ -z "$backup_name" ]]; then
         echo "Usage: hexmem_archon_restore <backup-file-name>" >&2
         echo "Example: hexmem_archon_restore hmdb-20260202093000.db" >&2
         echo "" >&2
         echo "Available backups:" >&2
-        source ~/.config/hex/archon/archon.env
-        cd ~/.config/hex/archon
+        source "$ARCHON_CONFIG_DIR/archon.env"
+        cd "$ARCHON_CONFIG_DIR"
         npx @didcid/keymaster list-vault-items hexmem-vault | grep "^hmdb-"
         return 1
     fi
     
     echo "Downloading backup: $backup_name" >&2
-    source ~/.config/hex/archon/archon.env
-    cd ~/.config/hex/archon
+    source "$ARCHON_CONFIG_DIR/archon.env"
+    cd "$ARCHON_CONFIG_DIR"
     
     local restore_file="/tmp/hexmem-restore-$$.db"
     if npx @didcid/keymaster get-vault-item hexmem-vault "$backup_name" > "$restore_file"; then
         echo "✓ Downloaded to: $restore_file" >&2
         echo "" >&2
         echo "To restore:" >&2
-        echo "  cp ~/clawd/hexmem/hexmem.db ~/clawd/hexmem/hexmem.db.backup" >&2
-        echo "  cp $restore_file ~/clawd/hexmem/hexmem.db" >&2
+        echo "  cp $HEXMEM_DB ${HEXMEM_DB}.backup" >&2
+        echo "  cp $restore_file $HEXMEM_DB" >&2
         echo "" >&2
         echo "Verify first: sqlite3 $restore_file .tables" >&2
     else

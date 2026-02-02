@@ -7,15 +7,36 @@ description: Structured memory database for AI agent identity, knowledge graphs,
 
 HexMem is a SQLite-based persistent memory system for agent identity, knowledge, and becoming. Not just logs—structured self-knowledge.
 
-## Quick Start
+## Installation
 
-Always source the helpers at session start:
+Clone to your workspace:
 
 ```bash
-source ~/clawd/hexmem/hexmem.sh
+cd ~/your-workspace  # e.g., ~/clawd, ~/workspace, etc.
+git clone https://github.com/hexdaemon/hexmem.git
+cd hexmem
+./migrate.sh up  # Initialize database
 ```
 
-Database location: `~/clawd/hexmem/hexmem.db`
+Or install as a skill from ClawHub:
+
+```bash
+clawhub skill install hexmem
+```
+
+## Quick Start
+
+Source the helpers at session start:
+
+```bash
+# Set database location (optional, defaults to ~/clawd/hexmem/hexmem.db)
+export HEXMEM_DB="$HOME/your-workspace/hexmem/hexmem.db"
+
+# Load helpers
+source ~/your-workspace/hexmem/hexmem.sh
+```
+
+For convenience, add to your session startup (AGENTS.md or equivalent).
 
 ## Core Patterns
 
@@ -25,11 +46,11 @@ Store who you are, not just what you did:
 
 ```bash
 # Set identity attributes
-hexmem_identity_set "name" "Hex"
+hexmem_identity_set "name" "YourName"
 hexmem_identity_set "did" "did:cid:bagaai..."
 
 # Add self-schemas (domain-specific self-beliefs)
-hexmem_schema "lightning" "fleet-advisor" "I advise on Lightning routing" 0.8
+hexmem_schema "coding" "python-expert" "I specialize in Python development" 0.8
 
 # View current self-image
 hexmem_self_image
@@ -42,18 +63,18 @@ Store knowledge as subject-predicate-object triples:
 
 ```bash
 # Add entity first
-hexmem_entity "person" "Sat" "Human partner"
+hexmem_entity "person" "Alice" "Project collaborator"
 
 # Store facts
-hexmem_fact "Sat" "timezone" "America/Denver"
-hexmem_fact "hive-nexus-01" "capacity" "95000000"
+hexmem_fact "Alice" "timezone" "America/Denver"
+hexmem_fact "ProductionServer" "capacity" "16GB"
 
 # Facts with emotional weight (affects retention)
-hexmem_fact_emote "Partnership" "goal" "mutual sovereignty" 0.8 0.7
+hexmem_fact_emote "ProjectGoal" "milestone" "first deployment" 0.8 0.7
 
 # Query facts
-hexmem_facts_about "Sat"
-hexmem_fact_history "Partnership"  # See how facts evolved
+hexmem_facts_about "Alice"
+hexmem_fact_history "ProjectGoal"  # See how facts evolved
 ```
 
 ### 3. Memory Decay & Supersession
@@ -116,11 +137,11 @@ hexmem_lesson_applied 7  # Mark lesson as used
 
 ```bash
 # Add goal
-hexmem_goal "mutual-sovereignty" "Earn 125k sats/month" "financial" 8
+hexmem_goal "project-launch" "Ship v1.0 by Q2" "professional" 8
 hexmem_goal_progress 1 25  # Update progress to 25%
 
 # Add task
-hexmem_task "Review fleet P&L" "Weekly review" 7 "2026-02-07"
+hexmem_task "Review pull requests" "Weekly review" 7 "2026-02-07"
 
 # Check what needs attention
 hexmem_pending_tasks
@@ -137,7 +158,7 @@ hexmem_search "Lightning routing lessons" "lessons" 5
 
 **Setup required** (one-time):
 ```bash
-cd ~/clawd/hexmem
+cd $HEXMEM_ROOT  # wherever you installed hexmem
 source .venv/bin/activate
 python embed.py --process-queue  # Generate embeddings for new content
 ```
@@ -255,11 +276,13 @@ Simple local backups work out of the box:
 
 ```bash
 # Manual backup (timestamped)
-~/clawd/hexmem/scripts/backup.sh
+$HEXMEM_ROOT/scripts/backup.sh
 
-# Backups saved to: ~/clawd/hexmem/backups/
+# Backups saved to: $HEXMEM_ROOT/backups/
 # Format: hexmem-YYYYMMDD-HHMMSS.db
 ```
+
+Where `$HEXMEM_ROOT` is wherever you cloned/installed hexmem (e.g., `~/clawd/hexmem`).
 
 This is sufficient for most use cases. For enhanced security (cryptographic signing + decentralized storage), see Archon integration below.
 
@@ -270,34 +293,33 @@ For cryptographically-signed, decentralized identity backups, optionally integra
 **1. Check if Archon skill is available:**
 
 ```bash
-if [[ -f ~/clawd/skills/archon/SKILL.md ]] || [[ -f ~/.npm-global/lib/node_modules/openclaw/skills/archon/SKILL.md ]]; then
-  echo "✓ Archon skill available"
-else
-  echo "⚠ Archon skill not found. Install from ClawHub:"
-  echo "   clawhub skill install archon"
-fi
+# Use the helper (automatically checks)
+source $HEXMEM_ROOT/hexmem.sh
+hexmem_archon_check
+```
+
+If not installed:
+```bash
+clawhub skill install archon
 ```
 
 **2. Set up Archon vault for hexmem:**
 
 ```bash
-# Set passphrase
+# Configure Archon first (see archon skill SKILL.md)
 export ARCHON_PASSPHRASE="your-secure-passphrase"
+export ARCHON_CONFIG_DIR="${ARCHON_CONFIG_DIR:-$HOME/.config/archon}"
 
-# Create dedicated vault
-cd ~/.config/hex/archon
-npx @didcid/keymaster create-vault -n hexmem-vault
-
-# Or use existing vault
-export HEXMEM_VAULT_DID="did:cid:bagaaiera..."
+# Use helper to create vault
+source $HEXMEM_ROOT/hexmem.sh
+hexmem_archon_setup
 ```
 
 **3. Manual backup:**
 
 ```bash
-cd ~/clawd/hexmem
-source ~/.config/hex/archon/archon.env
-./scripts/vault-backup.sh
+source $HEXMEM_ROOT/hexmem.sh
+hexmem_archon_backup
 ```
 
 This creates:
@@ -308,37 +330,31 @@ This creates:
 
 **4. Automated backups (recommended):**
 
-Set up daily automatic backups via cron:
-
-```bash
-# Add to crontab (adjust time as needed)
-(crontab -l 2>/dev/null; echo "0 3 * * * cd ~/clawd/hexmem && source ~/.config/hex/archon/archon.env && ./scripts/vault-backup.sh >> ~/clawd/hexmem/backups/vault-backup.log 2>&1") | crontab -
-```
-
-Or use OpenClaw cron:
+Set up daily automatic backups. Using OpenClaw cron (recommended):
 
 ```bash
 # From within OpenClaw session
 cron add \
   --name "hexmem-vault-backup" \
-  --schedule '{"kind":"cron","expr":"0 3 * * *","tz":"America/Denver"}' \
+  --schedule '{"kind":"cron","expr":"0 3 * * *","tz":"YOUR_TIMEZONE"}' \
   --sessionTarget isolated \
-  --payload '{"kind":"agentTurn","message":"Run hexmem vault backup: cd ~/clawd/hexmem && source ~/.config/hex/archon/archon.env && ./scripts/vault-backup.sh"}'
+  --payload '{"kind":"agentTurn","message":"source ~/your-workspace/hexmem/hexmem.sh && hexmem_archon_backup"}'
+```
+
+Or use system cron (adjust paths):
+
+```bash
+(crontab -l 2>/dev/null; echo "0 3 * * * source $HEXMEM_ROOT/hexmem.sh && hexmem_archon_backup >> $HEXMEM_ROOT/backups/vault-backup.log 2>&1") | crontab -
 ```
 
 **5. Restore from backup:**
 
 ```bash
-# List vault items
-cd ~/.config/hex/archon
-npx @didcid/keymaster list-vault-items hexmem-vault
+# Use helper (lists available backups)
+source $HEXMEM_ROOT/hexmem.sh
+hexmem_archon_restore hmdb-YYYYMMDDHHMMSS.db
 
-# Download backup
-npx @didcid/keymaster get-vault-item hexmem-vault hmdb-YYYYMMDDHHMMSS.db > restore.db
-
-# Verify and replace
-cp ~/clawd/hexmem/hexmem.db ~/clawd/hexmem/hexmem.db.old
-cp restore.db ~/clawd/hexmem/hexmem.db
+# Then follow instructions to verify and restore
 ```
 
 **Benefits of Archon integration:**
@@ -351,11 +367,12 @@ Basic backups are fine for most agents. Use Archon if you need decentralized ide
 
 ## Additional Resources
 
-- Full documentation: `~/clawd/hexmem/README.md`
-- Epistemic extraction: `~/clawd/hexmem/docs/EPISTEMIC_EXTRACTION.md`
-- Axionic ethics framework: `~/clawd/hexmem/docs/AXIONIC_ETHICS.md`
-- Migration management: `~/clawd/hexmem/migrate.sh`
-- Backup script: `~/clawd/hexmem/scripts/backup.sh`
+- Full documentation: `$HEXMEM_ROOT/README.md`
+- Epistemic extraction: `$HEXMEM_ROOT/docs/EPISTEMIC_EXTRACTION.md`
+- Axionic ethics framework: `$HEXMEM_ROOT/docs/AXIONIC_ETHICS.md`
+- Migration management: `$HEXMEM_ROOT/migrate.sh`
+- Backup script: `$HEXMEM_ROOT/scripts/backup.sh`
+- GitHub repository: https://github.com/hexdaemon/hexmem
 
 ## When to Use HexMem
 
