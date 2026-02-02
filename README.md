@@ -418,6 +418,8 @@ Override: `export HEXMEM_DB=/path/to/your/hexmem.db`
 
 ## Backup
 
+### Local Backups
+
 Use the safe SQLite backup API (works even while the DB is in use):
 
 ```bash
@@ -429,6 +431,55 @@ Use the safe SQLite backup API (works even while the DB is in use):
 ```
 
 `./migrate.sh up` also takes a timestamped backup automatically before applying any migrations.
+
+### Archon Vault Backups (Optional)
+
+For cryptographically-signed, decentralized identity backups:
+
+```bash
+# Check if Archon is available
+source hexmem.sh
+hexmem_archon_check
+
+# Create vault (one-time setup)
+hexmem_archon_setup
+
+# Manual backup
+hexmem_archon_backup
+
+# List available backups
+cd ~/.config/archon  # or $ARCHON_CONFIG_DIR
+export ARCHON_PASSPHRASE="your-passphrase"
+npx @didcid/keymaster list-vault-items hexmem-vault
+
+# Restore from backup
+hexmem_archon_restore hmdb-YYYYMMDDHHMMSS.db
+```
+
+**What's backed up to vault:**
+- Complete SQLite database (all identity, values, goals, facts, events, lessons)
+- Privacy-aware JSON export (significant events only, signed)
+- Metadata with SHA256 hashes
+
+**Automated backups:**
+
+Set up daily backups via OpenClaw cron (if using OpenClaw):
+
+```bash
+# From OpenClaw session
+cron add \
+  --name "hexmem-vault-backup" \
+  --schedule '{"kind":"cron","expr":"0 3 * * *","tz":"YOUR_TIMEZONE"}' \
+  --sessionTarget isolated \
+  --payload '{"kind":"agentTurn","message":"source ~/path/to/hexmem/hexmem.sh && hexmem_archon_backup"}'
+```
+
+Or use system cron:
+
+```bash
+# Add to crontab
+0 3 * * * cd /path/to/hexmem && export ARCHON_PASSPHRASE="your-passphrase" && source hexmem.sh && hexmem_archon_backup >> backups/vault-backup.log 2>&1
+```
 
 ## Verification
 
