@@ -170,10 +170,11 @@ python embed.py --process-queue  # Generate embeddings for new content
 ```bash
 source ~/clawd/hexmem/hexmem.sh
 
-# Check pending work
-hexmem_pending_tasks
+# One-liner helper (recommended)
+hexmem_session_start 5
 
-# Recent context (if needed)
+# Or manual steps:
+hexmem_pending_tasks
 hexmem_recent_events 5
 hexmem_emotional_highlights
 ```
@@ -189,6 +190,20 @@ hexmem_lesson "domain" "what you learned" "context"
 
 # If it relates to a goal
 hexmem_goal_progress <goal_id> <new_percentage>
+```
+
+### Session End
+
+```bash
+# Log a session summary event
+hexmem_session_end "Session ended" "Key outcomes, decisions, and next steps"
+```
+
+### Heartbeat Check
+
+```bash
+# Quick pending task review
+hexmem_heartbeat_check
 ```
 
 ### Periodic Review

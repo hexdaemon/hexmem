@@ -90,7 +90,10 @@ source hexmem.sh
 ```bash
 source hexmem.sh
 
-# Check pending tasks
+# Session start helper (pending tasks + recent context)
+hexmem_session_start 5
+
+# Check pending tasks (manual)
 hexmem_pending_tasks
 
 # Log an event
@@ -104,6 +107,20 @@ hexmem_fact "Sat" "timezone" "America/Denver"
 
 # Add a fact with emotional weight (affects decay)
 hexmem_fact_emote "Partnership" "goal" "mutual sovereignty" 0.8 0.7 "2026-01-28"
+```
+
+### Lifecycle Helpers (NEW)
+
+```bash
+# Session start (pending tasks + recent context)
+hexmem_session_start 5
+
+# Session end (log summary)
+hexmem_session_end "Session ended" "Key outcomes and next steps"
+
+# Heartbeat check (quick pending tasks)
+hexmem_heartbeat_check
+```
 
 # Access a fact (bumps to hot tier)
 hexmem_access_fact 42
