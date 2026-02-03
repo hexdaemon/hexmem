@@ -303,7 +303,7 @@ This is sufficient for most use cases. For enhanced security (cryptographic sign
 
 ### Archon Integration (Optional)
 
-For cryptographically-signed, decentralized identity backups, optionally integrate with Archon:
+For cryptographically-signed, decentralized identity backups, optionally integrate with Archon. **HexMem does not require the archon-skill**; it uses `npx @didcid/keymaster` directly. The archon-skill is an optional convenience layer for local node operations.
 
 **1. Check if Archon skill is available:**
 
