@@ -1560,3 +1560,39 @@ hexmem_token_estimate() {
     esac
 }
 
+
+# ============================================================================
+# LIFECYCLE HELPERS (simple, no AI required)
+# ============================================================================
+
+# Session start: quick context + pending tasks
+# Usage: hexmem_session_start [recent_events_count]
+hexmem_session_start() {
+    local count="${1:-5}"
+    echo "=== HexMem Session Start ===" >&2
+    echo "Pending tasks:" >&2
+    hexmem_pending_tasks
+    echo "" >&2
+    echo "Recent events (last $count):" >&2
+    hexmem_recent_events "$count"
+    echo "" >&2
+    echo "Emotional highlights:" >&2
+    hexmem_emotional_highlights
+}
+
+# Session end: log a summary event
+# Usage: hexmem_session_end "summary" [details]
+hexmem_session_end() {
+    local summary="${1:-Session ended}"
+    local details="${2:-}"
+    hexmem_event "session" "summary" "$summary" "$details"
+    echo "Logged session summary event." >&2
+}
+
+# Heartbeat check: quick pending task review
+# Usage: hexmem_heartbeat_check
+hexmem_heartbeat_check() {
+    echo "=== HexMem Heartbeat Check ===" >&2
+    hexmem_pending_tasks
+}
+
