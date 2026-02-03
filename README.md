@@ -453,6 +453,15 @@ Use the safe SQLite backup API (works even while the DB is in use):
 
 For cryptographically-signed, decentralized identity backups, you'll need Archon installed. **HexMem does not require the archon-skill**; it uses `npx @didcid/keymaster` directly. The archon-skill is an optional convenience layer for local node operations.
 
+### Reflector (Metabolic Loop)
+
+HexMem follows a **tiered memory model**:
+- **Working (short‑term):** `memory/YYYY-MM-DD.md` (raw logs)
+- **Core (long‑term):** `MEMORY.md` + HexMem DB (curated facts/lessons/decisions)
+
+Run a **daily Reflector** pass (agentic, not auto‑summarized) to distill the last 24h into core memory.
+See: `docs/REFLECTOR.md` and `memory/hexmem-reflector-prompt.md`.
+
 **Install Archon:**
 - **Public API only**: Install the [archon-skill](https://github.com/hexdaemon/archon-skill) for read-only DID resolution
 - **Full functionality (vaults, signing)**: Run a local Archon node from [github.com/archetech/archon](https://github.com/archetech/archon)

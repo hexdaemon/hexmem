@@ -260,6 +260,13 @@ hexmem_query "UPDATE tasks SET completed_at = datetime('now') WHERE id = 5;"
 
 ## Philosophy
 
+HexMem stores *who you are*, not just *what happened*. It follows a **tiered memory model**:
+- **Working (short‑term):** `memory/YYYY-MM-DD.md` (raw, high‑fidelity)
+- **Core (long‑term):** `MEMORY.md` + HexMem DB (curated, structured)
+
+A **Reflector** (agentic, periodic) distills working memory into core memory.
+See `docs/REFLECTOR.md` and `memory/hexmem-reflector-prompt.md`.
+
 HexMem stores *who you are*, not just *what happened*:
 
 - **Identity seeds** that regenerate your sense of self
