@@ -1284,3 +1284,279 @@ hexmem_archon_restore() {
     fi
 }
 
+
+# ============================================================================
+# PROGRESSIVE DISCLOSURE (inspired by claude-mem)
+# Token-efficient memory retrieval pattern
+# ============================================================================
+
+# Layer 1: Compact index - just IDs, timestamps, summaries
+# Returns ~50-100 tokens per result (no full content)
+# Usage: hexmem_index "query" [table] [limit]
+hexmem_index() {
+    local query="${1:?Usage: hexmem_index <query> [table] [limit]}"
+    local table="${2:-all}"
+    local limit="${3:-20}"
+    
+    local query_esc=$(hexmem_sql_escape "$query")
+    
+    echo "=== HexMem Index: '$query' (limit: $limit) ===" >&2
+    echo "Token-efficient view (IDs + summaries only)" >&2
+    echo "" >&2
+    
+    case "$table" in
+        events|event)
+            hexmem_select "
+                SELECT 
+                    id,
+                    datetime(occurred_at) as timestamp_text,
+                    event_type || '/' || category as type,
+                    substr(summary, 1, 80) as summary
+                FROM events
+                WHERE summary LIKE '%$query_esc%' 
+                   OR details LIKE '%$query_esc%'
+                   OR category LIKE '%$query_esc%'
+                ORDER BY occurred_at DESC
+                LIMIT $limit;
+            "
+            ;;
+        facts|fact)
+            hexmem_select "
+                SELECT 
+                    f.id,
+                    datetime(f.created_at) as created,
+                    COALESCE(e.name, f.subject_text) as subject,
+                    f.predicate,
+                    substr(f.object_text, 1, 50) as value
+                FROM facts f
+                LEFT JOIN entities e ON f.subject_entity_id = e.id
+                WHERE f.object_text LIKE '%$query_esc%'
+                   OR f.predicate LIKE '%$query_esc%'
+                   OR e.name LIKE '%$query_esc%'
+                   OR f.subject_text LIKE '%$query_esc%'
+                ORDER BY f.created_at DESC
+                LIMIT $limit;
+            "
+            ;;
+        lessons|lesson)
+            hexmem_select "
+                SELECT 
+                    id,
+                    domain,
+                    substr(lesson, 1, 80) as lesson_summary
+                FROM lessons
+                WHERE lesson LIKE '%$query_esc%'
+                   OR context LIKE '%$query_esc%'
+                   OR domain LIKE '%$query_esc%'
+                ORDER BY created_at DESC
+                LIMIT $limit;
+            "
+            ;;
+        all)
+            echo "--- Events ---" >&2
+            hexmem_index "$query" "events" 10
+            echo "" >&2
+            echo "--- Facts ---" >&2
+            hexmem_index "$query" "facts" 10
+            echo "" >&2
+            echo "--- Lessons ---" >&2
+            hexmem_index "$query" "lessons" 5
+            ;;
+        *)
+            echo "Unknown table: $table (use: events, facts, lessons, all)" >&2
+            return 1
+            ;;
+    esac
+    
+    echo "" >&2
+    echo "Next steps:" >&2
+    echo "  - Review IDs above" >&2
+    echo "  - Use: hexmem_timeline <event_id> [hours_before] [hours_after]" >&2
+    echo "  - Use: hexmem_details <table> <id1> [id2] [id3] ..." >&2
+}
+
+# Layer 2: Timeline context - what was happening around X?
+# Returns ~200-300 tokens (compact context window)
+# Usage: hexmem_timeline <event_id> [hours_before] [hours_after]
+hexmem_timeline() {
+    local event_id="${1:?Usage: hexmem_timeline <event_id> [hours_before] [hours_after]}"
+    local hours_before="${2:-2}"
+    local hours_after="${3:-2}"
+    
+    echo "=== Timeline Context Around Event #$event_id ===" >&2
+    echo "Window: -${hours_before}h to +${hours_after}h" >&2
+    echo "" >&2
+    
+    # Get the reference event timestamp
+    local ref_time=$(hexmem_query "SELECT occurred_at FROM events WHERE id=$event_id;")
+    
+    if [ -z "$ref_time" ]; then
+        echo "Event #$event_id not found" >&2
+        return 1
+    fi
+    
+    echo "Reference event:" >&2
+    hexmem_select "
+        SELECT 
+            id,
+            datetime(occurred_at) as timestamp_text,
+            event_type || '/' || category as type,
+            summary
+        FROM events
+        WHERE id = $event_id;
+    "
+    
+    echo "" >&2
+    echo "Context events:" >&2
+    hexmem_select "
+        SELECT 
+            id,
+            datetime(occurred_at) as timestamp_text,
+            event_type || '/' || category as type,
+            substr(summary, 1, 60) as summary,
+            CASE 
+                WHEN id = $event_id THEN '★ TARGET'
+                WHEN occurred_at < '$ref_time' THEN '← before'
+                ELSE '→ after'
+            END as relation
+        FROM events
+        WHERE occurred_at >= datetime('$ref_time', '-$hours_before hours')
+          AND occurred_at <= datetime('$ref_time', '+$hours_after hours')
+        ORDER BY occurred_at ASC;
+    "
+    
+    echo "" >&2
+    echo "Use: hexmem_details events <id> [id2] [id3] ... for full content" >&2
+}
+
+# Layer 2b: Timeline by date range
+# Usage: hexmem_timeline_range "2026-02-01" "2026-02-03"
+hexmem_timeline_range() {
+    local start_date="${1:?Usage: hexmem_timeline_range <start_date> <end_date>}"
+    local end_date="${2:?}"
+    
+    echo "=== Timeline: $start_date to $end_date ===" >&2
+    echo "" >&2
+    
+    hexmem_select "
+        SELECT 
+            id,
+            datetime(occurred_at) as timestamp_text,
+            event_type || '/' || category as type,
+            substr(summary, 1, 70) as summary
+        FROM events
+        WHERE date(occurred_at) >= '$start_date'
+          AND date(occurred_at) <= '$end_date'
+        ORDER BY occurred_at ASC;
+    "
+    
+    echo "" >&2
+    echo "Use: hexmem_details events <id> ... for full content" >&2
+}
+
+# Layer 3: Full details - only for filtered IDs
+# Returns ~500-1,000 tokens per result (complete records)
+# Usage: hexmem_details <table> <id1> [id2] [id3] ...
+hexmem_details() {
+    local table="${1:?Usage: hexmem_details <table> <id1> [id2] [id3] ...}"
+    shift
+    
+    if [ $# -eq 0 ]; then
+        echo "No IDs provided" >&2
+        return 1
+    fi
+    
+    local ids="$@"
+    local id_list=$(echo "$ids" | tr ' ' ',')
+    
+    echo "=== Full Details: $table ($# items) ===" >&2
+    echo "" >&2
+    
+    case "$table" in
+        events|event)
+            for id in $ids; do
+                echo "--- Event #$id ---" >&2
+                hexmem_select "
+                    SELECT 
+                        id,
+                        event_type,
+                        category,
+                        datetime(occurred_at) as timestamp_text,
+                        summary,
+                        details,
+                        emotional_valence,
+                        emotional_arousal
+                    FROM events
+                    WHERE id = $id;
+                "
+                echo "" >&2
+            done
+            ;;
+        facts|fact)
+            for id in $ids; do
+                echo "--- Fact #$id ---" >&2
+                hexmem_select "
+                    SELECT 
+                        f.id,
+                        COALESCE(e.name, f.subject_text) as subject,
+                        f.predicate,
+                        f.object_text as value,
+                        f.object_type as type,
+                        datetime(f.created_at) as created,
+                        f.source,
+                        f.confidence
+                    FROM facts f
+                    LEFT JOIN entities e ON f.subject_entity_id = e.id
+                    WHERE f.id = $id;
+                "
+                echo "" >&2
+            done
+            ;;
+        lessons|lesson)
+            for id in $ids; do
+                echo "--- Lesson #$id ---" >&2
+                hexmem_select "
+                    SELECT 
+                        id,
+                        domain,
+                        lesson,
+                        context,
+                        confidence,
+                        times_applied,
+                        times_validated,
+                        times_contradicted,
+                        datetime(created_at) as learned
+                    FROM lessons
+                    WHERE id = $id;
+                "
+                echo "" >&2
+            done
+            ;;
+        *)
+            echo "Unknown table: $table (use: events, facts, lessons)" >&2
+            return 1
+            ;;
+    esac
+}
+
+# Token cost estimator (approximate)
+hexmem_token_estimate() {
+    local operation="$1"
+    local count="${2:-1}"
+    
+    case "$operation" in
+        index)
+            echo "~$((count * 75)) tokens (compact index)"
+            ;;
+        timeline)
+            echo "~300 tokens (context window)"
+            ;;
+        details)
+            echo "~$((count * 750)) tokens (full records)"
+            ;;
+        *)
+            echo "Usage: hexmem_token_estimate <index|timeline|details> [count]"
+            ;;
+    esac
+}
+
