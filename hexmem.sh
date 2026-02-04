@@ -1596,3 +1596,52 @@ hexmem_heartbeat_check() {
     hexmem_pending_tasks
 }
 
+
+# ============================================================================
+# HEXSWARM INTEGRATION
+# ============================================================================
+
+HEXSWARM_DIR="${HEXSWARM_DIR:-/home/sat/bin/hexswarm}"
+
+# Delegate a task with context enrichment
+# Usage: hexswarm_delegate <agent|auto> <type> <description>
+hexswarm_delegate() {
+    "$HEXSWARM_DIR/bin/smart-delegate.sh" "$@"
+}
+
+# Query swarm lessons by domain
+# Usage: hexswarm_lessons [domain]
+hexswarm_lessons() {
+    "$HEXSWARM_DIR/bin/swarm-intel.sh" lessons "${1:-general}"
+}
+
+# Search swarm lessons
+# Usage: hexswarm_search <query>
+hexswarm_search() {
+    "$HEXSWARM_DIR/bin/swarm-intel.sh" search "$@"
+}
+
+# Get best agent for task type
+# Usage: hexswarm_best <task_type>
+hexswarm_best() {
+    "$HEXSWARM_DIR/bin/swarm-intel.sh" best "${1:-general}"
+}
+
+# Preview context that would be injected for a task
+# Usage: hexswarm_context <description>
+hexswarm_context() {
+    "$HEXSWARM_DIR/bin/swarm-intel.sh" context "$@"
+}
+
+# Check for agent task completions
+# Usage: hexswarm_check
+hexswarm_check() {
+    "$HEXSWARM_DIR/bin/check-completions.sh"
+}
+
+# View agent performance stats
+# Usage: hexswarm_performance [agent]
+hexswarm_performance() {
+    "$HEXSWARM_DIR/bin/swarm-intel.sh" performance "$@"
+}
+
