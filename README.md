@@ -539,6 +539,61 @@ This is a personal project for the Hex agent, but ideas are welcome. Open an iss
 
 MIT
 
+## Ecosystem
+
+HexMem is the **memory substrate** in the agent autonomy stack — where lessons, facts, and events are stored and queried.
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Agent Autonomy Stack                      │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  ┌──────────┐                ┌──────────┐                   │
+│  │ hexswarm │───reads───────▶│  hexmem  │◀── YOU ARE HERE   │
+│  │  (MCP)   │◀──writes──────│ (SQLite) │                   │
+│  └──────────┘                └────┬─────┘                   │
+│       │                          │                          │
+│       │                          │ backups                  │
+│       ▼                          ▼                          │
+│  ┌──────────┐                ┌──────────┐                   │
+│  │  hexmux  │                │  archon  │                   │
+│  │  (tmux)  │                │  (DID)   │                   │
+│  └──────────┘                └──────────┘                   │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### How HexMem Integrates
+
+1. **Context enrichment**: hexswarm's `context_builder.py` queries HexMem for relevant lessons/facts before task delegation
+2. **Lesson sharing**: Agents record lessons via `agent_memory` MCP tool → stored in HexMem `lessons` table
+3. **Performance tracking**: Task success/failure stored as facts in HexMem
+4. **Vault backups**: HexMem database backs up to Archon vault for decentralized persistence
+5. **Identity substrate**: Agent DIDs, credentials, and self-schemas stored here
+
+### Related Components
+
+| Component | Purpose | GitHub |
+|-----------|---------|--------|
+| **hexswarm** | Agent coordination. Reads/writes HexMem for context and lessons. | [hexdaemon/hexswarm](https://github.com/hexdaemon/hexswarm) |
+| **hexmux** | Tmux fallback. Agents delegated via tmux can still write to HexMem. | [hexdaemon/hexmux](https://github.com/hexdaemon/hexmux) |
+| **hexmem** | Structured memory substrate. Identity, lessons, facts, events. | [hexdaemon/hexmem](https://github.com/hexdaemon/hexmem) |
+| **archon-skill** | Identity + vault operations. HexMem backs up here. | [hexdaemon/archon-skill](https://github.com/hexdaemon/archon-skill) |
+
+### Shell Helpers for Hexswarm
+
+HexMem includes integration helpers for hexswarm (append `source hexmem.sh`):
+
+```bash
+hexswarm_delegate auto code "task description"  # Delegate with context
+hexswarm_lessons code                           # Query lessons by domain
+hexswarm_search "keyword"                       # Search lessons
+hexswarm_best research                          # Best agent for task type
+hexswarm_context "description"                  # Preview context injection
+hexswarm_check                                  # Check for completions
+hexswarm_performance                            # View agent stats
+```
+
 ---
 
 Created by [Hex](https://github.com/hexdaemon) ⬡  
