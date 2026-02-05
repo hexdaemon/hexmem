@@ -1,8 +1,8 @@
 {
     "@context": "https://w3id.org/security/v2",
     "type": "RepoManifest",
-    "issuer": "did:cid:bagaaierajrr7k6izcrdfwqxpgtrobflsv5oibymfnthjazkkokaugszyh4ka",
-    "created": "2026-02-02T17:23:55Z",
+    "issuer": "did:cid:bagaaieratn3qejd6mr4y2bk3nliriafoyeftt74tkl7il6bbvakfdupahkla",
+    "created": "2026-02-05T16:22:10Z",
     "repository": "https://github.com/hexdaemon/hexmem",
     "files": [
         {
@@ -22,8 +22,24 @@
             "sha256": "d829cf32e1fb2317f3a88f2f07922785e57bdfb9060d892fb7b2f2ad6a5779ce"
         },
         {
+            "path": "./docs/CLAUDE_MEM_IMPROVEMENTS.md",
+            "sha256": "a6cc4eed729d87e263559ec4f7d604ccb5159f327510468401bf0ffd999761d3"
+        },
+        {
             "path": "./docs/EPISTEMIC_EXTRACTION.md",
             "sha256": "6a3f05a42cad86eeeb4b5c569e2285685103522d39f5032759fed4113ea92adc"
+        },
+        {
+            "path": "./docs/PROGRESSIVE_DISCLOSURE.md",
+            "sha256": "d7b3879480aa6493b92d3dd72332488c2369e2c430f2286d1c1256f43d2ee851"
+        },
+        {
+            "path": "./docs/REFLECTOR.md",
+            "sha256": "cb73f5ea48315afbbcfdec9e5d36c320961711a85734e4cf45ff6bb448569739"
+        },
+        {
+            "path": "./docs/SESSION_COMPRESSION.md",
+            "sha256": "0edc98ae8a2c92e4d49182e6d38cff3d514a30ab11c5621b4f13fc40c4f0fb3f"
         },
         {
             "path": "./embed.py",
@@ -60,6 +76,18 @@
         {
             "path": "./exports/hexmem-significant-20260202-101602.json",
             "sha256": "23d1fc37bd2280090ec9a8ee50b3406ed6993e538527f1705537fefc844be8d2"
+        },
+        {
+            "path": "./exports/hexmem-significant-20260203-030009.json",
+            "sha256": "1e06d0b14a064d5e7debbbb3433bb14bb0fc7f8cb2cb1e66f71f293e759e2b07"
+        },
+        {
+            "path": "./exports/hexmem-significant-20260204-030127.json",
+            "sha256": "1f7fb16714d5e30a237b0cf13d6cda6e23951cb78c5e6c9f466c215859271eb7"
+        },
+        {
+            "path": "./exports/hexmem-significant-20260205-030007.json",
+            "sha256": "13a310b02e95adf11ada7173d61fa20ff85d1e05ae9c5623dccec2ad8e1845e4"
         },
         {
             "path": "./exports/hexmem-vault-meta-20260201-111027.json",
@@ -102,12 +130,36 @@
             "sha256": "ab5f44b85c1c838f0dada334f4794a9e9083676e617bb9682782b11f3e4d388d"
         },
         {
+            "path": "./exports/hexmem-vault-meta-20260203100009.json",
+            "sha256": "e3905ebd627e50465cb55d86bf5e26fb11112231f7913d48c6db80c60fa20b84"
+        },
+        {
+            "path": "./exports/hexmem-vault-meta-20260203100009.json.signed.json",
+            "sha256": "e28a03df21c700cc4dee7effc84f4539f988af4eb6f13e5994a187aaff06c5c3"
+        },
+        {
+            "path": "./exports/hexmem-vault-meta-20260204100127.json",
+            "sha256": "36f8f906b0f246eacd48c1558d71aedbda882165afee17921080b9aa09630859"
+        },
+        {
+            "path": "./exports/hexmem-vault-meta-20260204100127.json.signed.json",
+            "sha256": "334ca91da39fa30f6bd00e0265cab82b1566e0e013201cf236cb7e11dfb5c3f2"
+        },
+        {
+            "path": "./exports/hexmem-vault-meta-20260205100007.json",
+            "sha256": "1ce6488e0cddacc3143a7c8829e19d5a0994d53023a96855a9be63d0706c1516"
+        },
+        {
+            "path": "./exports/hexmem-vault-meta-20260205100007.json.signed.json",
+            "sha256": "25f80e0becf5b596eae8a46ae27c33f4b72d3b74c80bc76746a3dbcc67069896"
+        },
+        {
             "path": "./.gitignore",
             "sha256": "2429a8b8688148a526c6dccad051f81daa4bd24621d51634648dd103b4f445fc"
         },
         {
             "path": "./hexmem.sh",
-            "sha256": "d18a11aa1f4a8faabaf150fd3013132cc332b5f072f2d782a32dcde3c0e051b7"
+            "sha256": "6429d750140247b87396467958b2b6202d9a2d38479f6cf091d441f59e742c78"
         },
         {
             "path": "./LICENSE",
@@ -162,8 +214,16 @@
             "sha256": "1693f3aec054043e54e413e58f35cf9859d2a86eefcf6586ffce223e9ead3586"
         },
         {
+            "path": "./migrations/011_daily_logs.sql",
+            "sha256": "8f5f61dbf5dbb0fde3da733344af047eac545e9200ea405ea6432cf2942654bb"
+        },
+        {
+            "path": "./__pycache__/embed.cpython-312.pyc",
+            "sha256": "275c3f2a1979c4ddb19e5f8f37d7ae54eb959ab43b68c4017877482e90f1c6cb"
+        },
+        {
             "path": "./README.md",
-            "sha256": "c66d0fc66eaa75df01b0a17810ee9e800455b6e0d450f9bab2a2472abadb74c1"
+            "sha256": "35bfbc02e7a0923224f802cb6412ddf4e5e861b5f55b6e6c7365676eb883becc"
         },
         {
             "path": "./requirements.txt",
@@ -186,6 +246,10 @@
             "sha256": "b1b84f7dc1a49893fa08789bb6ddfe7cead73ea61509144ebf2fc0e457ef1be6"
         },
         {
+            "path": "./scripts/hexmem-check.sh",
+            "sha256": "a1e16b6234583a06e7d9914a0df2054de926f8724c0cf59710080d56379bd9e4"
+        },
+        {
             "path": "./scripts/hex-reflect.sh",
             "sha256": "5bc1cc4ae779dad30b96086b3dd143631e0eaeb7a304e189ece7512d9888edf4"
         },
@@ -195,7 +259,7 @@
         },
         {
             "path": "./scripts/sign-repo.sh",
-            "sha256": "abb10db670400f6a599fbb3fb2add76103d6bc214b7a4977d2aca5cf1544d430"
+            "sha256": "add39c68d8612f2b277b38de26985461e025156cd7d9a45ca3ab23374493ad63"
         },
         {
             "path": "./scripts/vault-backup.sh",
@@ -215,14 +279,14 @@
         },
         {
             "path": "./SKILL.md",
-            "sha256": "0b7da36d370e7353248897ec5c0cf40b6beccaf8e3e327cc8f488b700de27174"
+            "sha256": "2fa3b295471e01c0dcd4f393d0bf41a16bd8d7f33e0e408f040359b3303ee4af"
         }
     ],
     "proof": {
         "type": "EcdsaSecp256k1Signature2019",
-        "created": "2026-02-02T17:23:57.329Z",
+        "created": "2026-02-05T16:22:13.211Z",
         "verificationMethod": "did:cid:bagaaierajrr7k6izcrdfwqxpgtrobflsv5oibymfnthjazkkokaugszyh4ka#key-1",
         "proofPurpose": "assertionMethod",
-        "proofValue": "nVv7MtGzHoICZs-vCRqWlZdBGJPjMoJPJ12t9WPu9SZaO4jDiwLdC4CF9YdoicVU9RxoU1en2cCcezcu-46Ysw"
+        "proofValue": "tH1Hs9h1pAL3ynLZSlrcqs1SLWEycz0PnnziHVKR9jVf1cXI4pSTvdGvMhLqXrVKw49z6mG0WV-y_vGUxDKRrA"
     }
 }
