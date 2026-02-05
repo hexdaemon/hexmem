@@ -122,6 +122,16 @@ hexmem_session_end "Session ended" "Key outcomes and next steps"
 hexmem_heartbeat_check
 ```
 
+### Reflector (Metabolic Loop)
+
+HexMem uses **tiered memory**: high‑fidelity working logs + curated core memory. The Reflector is an **agentic** sleep-cycle that distills signal from raw logs.
+
+- Working logs: `memory/YYYY-MM-DD.md`
+- Core memory: `MEMORY.md` + HexMem DB
+- Triggered hooks: log core updates immediately on significant state changes (deploys, config, incidents)
+
+See: **docs/REFLECTOR.md** for full guidance and a reminder-only cron template.
+
 # Access a fact (bumps to hot tier)
 hexmem_access_fact 42
 

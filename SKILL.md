@@ -236,6 +236,16 @@ hexmem_goal_progress <goal_id> <new_percentage>
 hexmem_session_end "Session ended" "Key outcomes, decisions, and next steps"
 ```
 
+### Reflector (Metabolic Loop)
+
+Run a periodic **agentic** distillation cycle (not every message). It reads recent working logs and updates core memory.
+
+- Working logs: `memory/YYYY-MM-DD.md`
+- Core memory: `MEMORY.md` + HexMem DB
+- Triggered hooks: log core updates immediately on significant state changes (config changes, deploys, incidents)
+
+See: `docs/REFLECTOR.md` for the full pattern + reminder-only cron template.
+
 ### Heartbeat Check
 
 ```bash
