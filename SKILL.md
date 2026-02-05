@@ -202,6 +202,18 @@ hexmem_lesson "<domain>" "<lesson>" "<context>"
 
 ## Common Workflows
 
+### Daily Log (replaces `memory/YYYY-MM-DD.md`)
+
+Use HexMem daily logs instead of writing markdown files.
+
+```bash
+source ~/clawd/hexmem/hexmem.sh
+hexmem_daily_log "fleet" "Deep check run" "details..."
+hexmem_daily_show          # today
+hexmem_daily_show 2026-02-05
+hexmem_daily_tail 20
+```
+
 ### Session Start (Main Session Only)
 
 ```bash

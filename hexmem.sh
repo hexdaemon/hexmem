@@ -216,6 +216,65 @@ hexmem_recent_events() {
 }
 
 # ============================================================================
+# DAILY LOGS (replacement for memory/YYYY-MM-DD.md)
+# ============================================================================
+
+# Append a daily log entry
+# Usage: hexmem_daily_log <kind> <summary> [details] [tags] [source]
+hexmem_daily_log() {
+    local kind="$1"
+    local summary="$2"
+    local details="${3:-}"
+    local tags="${4:-}"
+    local source="${5:-hex}"
+
+    local day
+    day=$(date +%F)
+
+    local kind_esc
+    kind_esc=$(hexmem_sql_escape "$kind")
+    local summary_esc
+    summary_esc=$(hexmem_sql_escape "$summary")
+    local details_esc
+    details_esc=$(hexmem_sql_escape "$details")
+    local tags_esc
+    tags_esc=$(hexmem_sql_escape "$tags")
+    local source_esc
+    source_esc=$(hexmem_sql_escape "$source")
+
+    hexmem_query "INSERT INTO daily_logs (day, kind, summary, details, source, tags)
+                  VALUES ('$day', '$kind_esc', '$summary_esc', '$details_esc', '$source_esc', '$tags_esc');"
+}
+
+# Show daily log entries
+# Usage: hexmem_daily_show [YYYY-MM-DD] [limit]
+hexmem_daily_show() {
+    local day="${1:-$(date +%F)}"
+    local limit="${2:-200}"
+    local day_esc
+    day_esc=$(hexmem_sql_escape "$day")
+
+    hexmem_select "SELECT ts, kind, summary FROM daily_logs
+                   WHERE day='$day_esc'
+                   ORDER BY ts ASC
+                   LIMIT $limit;"
+}
+
+# Tail daily log entries (most recent first)
+# Usage: hexmem_daily_tail [limit] [day]
+hexmem_daily_tail() {
+    local limit="${1:-50}"
+    local day="${2:-$(date +%F)}"
+    local day_esc
+    day_esc=$(hexmem_sql_escape "$day")
+
+    hexmem_select "SELECT ts, kind, summary FROM daily_logs
+                   WHERE day='$day_esc'
+                   ORDER BY ts DESC
+                   LIMIT $limit;"
+}
+
+# ============================================================================
 # LESSONS
 # ============================================================================
 
