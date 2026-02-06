@@ -65,6 +65,9 @@ EOF
 SIGNED_META="$META_FILE.signed.json"
 (cd "$ARCHON_DIR" && npx @didcid/keymaster sign-file "$META_FILE") > "$SIGNED_META" 2>/dev/null
 
+# 4b) Verify proof (Archon v0.2.0+)
+(cd "$ARCHON_DIR" && npx @didcid/keymaster verify-file "$SIGNED_META") >/dev/null
+
 # 5) Upload artifacts
 # Keymaster currently enforces short vault item names; stage with short basenames.
 STAGE_DIR=$(mktemp -d)

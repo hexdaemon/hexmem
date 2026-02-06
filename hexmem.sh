@@ -1704,3 +1704,12 @@ hexswarm_performance() {
     "$HEXSWARM_DIR/bin/swarm-intel.sh" performance "$@"
 }
 
+# Convenience wrapper: hs <type> "desc" OR hs <agent> <type> "desc"
+# Usage:
+#   hs code "refactor storage module"
+#   hs auto research "find LN routing papers"
+#   hs codex code "implement validation"
+hs() {
+    "$HEXSWARM_DIR/bin/hs" "$@"
+}
+
