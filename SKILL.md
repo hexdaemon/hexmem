@@ -200,6 +200,70 @@ hexmem_event "decision" "<category>" "<summary>" "<details>"
 hexmem_lesson "<domain>" "<lesson>" "<context>"
 ```
 
+## Quick Query Shortcuts
+
+Fast access to common queries:
+
+```bash
+source ~/clawd/hexmem/hexmem.sh
+
+# Today's events
+hexmem_today                    # All today's events
+hexmem_today fleet              # Today's fleet events only
+
+# Recent lessons
+hexmem_recent_lessons           # Past 7 days
+hexmem_recent_lessons 14        # Past 14 days
+hexmem_recent_lessons 7 lightning  # Lightning lessons past 7 days
+
+# Text search (no semantic, fast grep)
+hexmem_grep "routing"           # Search all tables
+hexmem_grep "fee" events        # Search events only
+hexmem_grep "channel" facts     # Search facts only
+
+# Weekly summary
+hexmem_weekly_summary           # Stats and highlights from past week
+
+# Daily reflection
+hexmem_reflect                  # Show prompts
+hexmem_reflect "summary..."     # Log reflection
+```
+
+## Task Management
+
+Simplified task workflow:
+
+```bash
+# Add task (simplified interface)
+hexmem_task_add "Title" [priority] [due] [description]
+hexmem_task_add "Review PR" 7
+hexmem_task_add "Write docs" 5 "2026-02-15"
+hexmem_task_add "Fix bug" 8 "" "Details about the bug"
+
+# Complete task
+hexmem_task_done 42             # Mark done
+hexmem_task_done 42 "Fixed it"  # Mark done with notes
+
+# List tasks
+hexmem_task_list                # Pending only, sorted by priority
+hexmem_task_list all            # All tasks including done
+
+# Defer task
+hexmem_task_defer 42            # Defer indefinitely
+hexmem_task_defer 42 "2026-03-01"  # Defer with new due date
+```
+
+## One-Liner Event Logging
+
+Quick shortcuts for common event types:
+
+```bash
+hexmem_decision "Changed fee policy" "fleet" "Raised min to 30ppm"
+hexmem_error "Plugin crashed" "infrastructure" "Stack trace..."
+hexmem_success "First autonomous expansion" "fleet"
+hexmem_learning "Patience with young channels" "lightning" "From fleet experience"
+```
+
 ## Common Workflows
 
 ### Daily Log (replaces `memory/YYYY-MM-DD.md`)

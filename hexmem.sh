@@ -356,16 +356,24 @@ hexmem_set() {
     local value="$2"
     local namespace="${3:-default}"
     
+    local key_esc=$(hexmem_sql_escape "$key")
+    local value_esc=$(hexmem_sql_escape "$value")
+    local namespace_esc=$(hexmem_sql_escape "$namespace")
+    
     hexmem_query "INSERT INTO kv_store (key, value, namespace)
-                  VALUES ('$key', '$value', '$namespace')
-                  ON CONFLICT(key) DO UPDATE SET value=excluded.value, 
+                  VALUES ('$key_esc', '$value_esc', '$namespace_esc')
+                  ON CONFLICT(namespace, key) DO UPDATE SET value=excluded.value, 
                                                   updated_at=datetime('now');"
 }
 
 # Get a value
+# Usage: hexmem_get <key> [namespace]
 hexmem_get() {
     local key="$1"
-    hexmem_query "SELECT value FROM kv_store WHERE key='$key';"
+    local namespace="${2:-default}"
+    local key_esc=$(hexmem_sql_escape "$key")
+    local namespace_esc=$(hexmem_sql_escape "$namespace")
+    hexmem_query "SELECT value FROM kv_store WHERE key='$key_esc' AND namespace='$namespace_esc';"
 }
 
 # ============================================================================
@@ -378,8 +386,16 @@ hexmem_identity_set() {
     local value="$2"
     local public="${3:-1}"
     
+    local attr_esc=$(hexmem_sql_escape "$attr")
+    local value_esc=$(hexmem_sql_escape "$value")
+    
+    # Validate public is 0 or 1
+    if [[ ! "$public" =~ ^[01]$ ]]; then
+        public=1
+    fi
+    
     hexmem_query "INSERT INTO identity (attribute, value, public)
-                  VALUES ('$attr', '$value', $public)
+                  VALUES ('$attr_esc', '$value_esc', $public)
                   ON CONFLICT(attribute) DO UPDATE SET value=excluded.value,
                                                         updated_at=datetime('now');"
 }
@@ -387,7 +403,8 @@ hexmem_identity_set() {
 # Get identity attribute
 hexmem_identity_get() {
     local attr="$1"
-    hexmem_query "SELECT value FROM identity WHERE attribute='$attr';"
+    local attr_esc=$(hexmem_sql_escape "$attr")
+    hexmem_query "SELECT value FROM identity WHERE attribute='$attr_esc';"
 }
 
 # ============================================================================
@@ -1653,6 +1670,298 @@ hexmem_session_end() {
 hexmem_heartbeat_check() {
     echo "=== HexMem Heartbeat Check ===" >&2
     hexmem_pending_tasks
+}
+
+
+# ============================================================================
+# QUICK QUERY SHORTCUTS (Phase 3 Enhancement)
+# ============================================================================
+
+# Events from today
+# Usage: hexmem_today [category]
+hexmem_today() {
+    local category="${1:-}"
+    local today=$(date +%Y-%m-%d)
+    
+    if [[ -n "$category" ]]; then
+        local category_esc=$(hexmem_sql_escape "$category")
+        hexmem_select "SELECT id, substr(occurred_at, 12, 5) as time, event_type, summary
+                       FROM events 
+                       WHERE date(occurred_at) = '$today' AND category = '$category_esc'
+                       ORDER BY occurred_at DESC;"
+    else
+        hexmem_select "SELECT id, substr(occurred_at, 12, 5) as time, event_type || '/' || category as type, summary
+                       FROM events 
+                       WHERE date(occurred_at) = '$today'
+                       ORDER BY occurred_at DESC;"
+    fi
+}
+
+# Lessons from past N days (default 7)
+# Usage: hexmem_recent_lessons [days] [domain]
+hexmem_recent_lessons() {
+    local days="${1:-7}"
+    local domain="${2:-}"
+    
+    if [[ -n "$domain" ]]; then
+        local domain_esc=$(hexmem_sql_escape "$domain")
+        hexmem_select "SELECT id, domain, lesson, substr(created_at, 1, 10) as learned
+                       FROM lessons 
+                       WHERE created_at >= datetime('now', '-$days days')
+                         AND domain = '$domain_esc'
+                       ORDER BY created_at DESC;"
+    else
+        hexmem_select "SELECT id, domain, lesson, substr(created_at, 1, 10) as learned
+                       FROM lessons 
+                       WHERE created_at >= datetime('now', '-$days days')
+                       ORDER BY created_at DESC;"
+    fi
+}
+
+# Simple text search across events/lessons/facts (no semantic, just LIKE)
+# Usage: hexmem_grep <query> [table] [limit]
+hexmem_grep() {
+    local query="${1:?Usage: hexmem_grep <query> [table] [limit]}"
+    local table="${2:-all}"
+    local limit="${3:-20}"
+    
+    local query_esc=$(hexmem_sql_escape "$query")
+    
+    case "$table" in
+        events|event)
+            hexmem_select "SELECT id, substr(occurred_at, 1, 10) as date, event_type, summary
+                           FROM events 
+                           WHERE summary LIKE '%$query_esc%' OR details LIKE '%$query_esc%'
+                           ORDER BY occurred_at DESC LIMIT $limit;"
+            ;;
+        lessons|lesson)
+            hexmem_select "SELECT id, domain, lesson
+                           FROM lessons 
+                           WHERE lesson LIKE '%$query_esc%' OR context LIKE '%$query_esc%'
+                           ORDER BY created_at DESC LIMIT $limit;"
+            ;;
+        facts|fact)
+            hexmem_select "SELECT id, COALESCE(subject_text, 'entity') as subject, predicate, object_text
+                           FROM facts 
+                           WHERE object_text LIKE '%$query_esc%' OR predicate LIKE '%$query_esc%'
+                           ORDER BY created_at DESC LIMIT $limit;"
+            ;;
+        all|*)
+            echo "=== Events ===" >&2
+            hexmem_grep "$query" events 10
+            echo "" >&2
+            echo "=== Lessons ===" >&2
+            hexmem_grep "$query" lessons 10
+            echo "" >&2
+            echo "=== Facts ===" >&2
+            hexmem_grep "$query" facts 10
+            ;;
+    esac
+}
+
+
+# ============================================================================
+# TASK MANAGEMENT IMPROVEMENTS (Phase 3 Enhancement)
+# ============================================================================
+
+# Add a task (simplified interface)
+# Usage: hexmem_task_add "title" [priority 1-9] [due YYYY-MM-DD] [description]
+hexmem_task_add() {
+    local title="${1:?Usage: hexmem_task_add \"title\" [priority] [due] [description]}"
+    local priority="${2:-5}"
+    local due="${3:-}"
+    local desc="${4:-}"
+    
+    # Validate priority
+    if ! [[ "$priority" =~ ^[1-9]$ ]]; then
+        priority=5
+    fi
+    
+    local title_esc=$(hexmem_sql_escape "$title")
+    local desc_esc=$(hexmem_sql_escape "$desc")
+    local due_esc=$(hexmem_sql_escape "$due")
+    
+    if [[ -n "$due" ]]; then
+        hexmem_query "INSERT INTO tasks (title, description, priority, due_at)
+                      VALUES ('$title_esc', '$desc_esc', $priority, '$due_esc');"
+    else
+        hexmem_query "INSERT INTO tasks (title, description, priority)
+                      VALUES ('$title_esc', '$desc_esc', $priority);"
+    fi
+    
+    local task_id=$(hexmem_query "SELECT last_insert_rowid();")
+    echo "Task #$task_id created: $title" >&2
+}
+
+# Complete a task with optional notes
+# Usage: hexmem_task_done <id> [notes]
+hexmem_task_done() {
+    local task_id="${1:?Usage: hexmem_task_done <id> [notes]}"
+    local notes="${2:-}"
+    
+    # Validate task exists
+    local exists=$(hexmem_query "SELECT id FROM tasks WHERE id=$task_id;")
+    if [[ -z "$exists" ]]; then
+        echo "Task #$task_id not found" >&2
+        return 1
+    fi
+    
+    if [[ -n "$notes" ]]; then
+        local notes_esc=$(hexmem_sql_escape "$notes")
+        hexmem_query "UPDATE tasks SET status='done', completed_at=datetime('now'),
+                      description = CASE WHEN description = '' THEN '$notes_esc' 
+                                        ELSE description || ' [Done: $notes_esc]' END
+                      WHERE id=$task_id;"
+    else
+        hexmem_query "UPDATE tasks SET status='done', completed_at=datetime('now') 
+                      WHERE id=$task_id;"
+    fi
+    
+    local title=$(hexmem_query "SELECT title FROM tasks WHERE id=$task_id;")
+    echo "✓ Task #$task_id completed: $title" >&2
+}
+
+# List pending tasks with better sorting
+# Usage: hexmem_task_list [status]
+hexmem_task_list() {
+    local status="${1:-pending}"
+    
+    if [[ "$status" == "all" ]]; then
+        hexmem_select "SELECT id, title, priority as pri, status, 
+                              COALESCE(due_at, '-') as due
+                       FROM tasks 
+                       ORDER BY 
+                         CASE status WHEN 'pending' THEN 0 WHEN 'in_progress' THEN 1 ELSE 2 END,
+                         priority DESC, due_at ASC
+                       LIMIT 30;"
+    else
+        hexmem_select "SELECT id, title, priority as pri, 
+                              COALESCE(due_at, '-') as due
+                       FROM tasks 
+                       WHERE status IN ('pending', 'in_progress')
+                       ORDER BY priority DESC, due_at ASC
+                       LIMIT 20;"
+    fi
+}
+
+# Defer a task
+# Usage: hexmem_task_defer <id> [new_due]
+hexmem_task_defer() {
+    local task_id="${1:?Usage: hexmem_task_defer <id> [new_due]}"
+    local new_due="${2:-}"
+    
+    if [[ -n "$new_due" ]]; then
+        local due_esc=$(hexmem_sql_escape "$new_due")
+        hexmem_query "UPDATE tasks SET status='deferred', due_at='$due_esc' WHERE id=$task_id;"
+    else
+        hexmem_query "UPDATE tasks SET status='deferred' WHERE id=$task_id;"
+    fi
+    
+    echo "Task #$task_id deferred" >&2
+}
+
+
+# ============================================================================
+# REFLECTION HELPERS (Phase 3 Enhancement)
+# ============================================================================
+
+# Daily reflection prompt
+# Usage: hexmem_reflect [summary]
+hexmem_reflect() {
+    local summary="$1"
+    
+    if [[ -z "$summary" ]]; then
+        echo "=== Daily Reflection ===" >&2
+        echo "What happened today?" >&2
+        hexmem_today
+        echo "" >&2
+        echo "What did I learn?" >&2
+        hexmem_recent_lessons 1
+        echo "" >&2
+        echo "What's pending?" >&2
+        hexmem_pending_tasks
+        echo "" >&2
+        echo "To log reflection: hexmem_reflect \"your reflection summary\"" >&2
+    else
+        local summary_esc=$(hexmem_sql_escape "$summary")
+        hexmem_event "reflection" "daily" "$summary"
+        echo "Reflection logged." >&2
+    fi
+}
+
+# Weekly summary
+# Usage: hexmem_weekly_summary
+hexmem_weekly_summary() {
+    echo "=== Weekly Summary (Past 7 Days) ===" >&2
+    echo "" >&2
+    
+    echo "--- Events by Category ---" >&2
+    hexmem_select "SELECT category, COUNT(*) as count, 
+                          ROUND(AVG(significance), 1) as avg_significance
+                   FROM events 
+                   WHERE occurred_at >= datetime('now', '-7 days')
+                   GROUP BY category
+                   ORDER BY count DESC;"
+    
+    echo "" >&2
+    echo "--- Lessons Learned ---" >&2
+    hexmem_recent_lessons 7
+    
+    echo "" >&2
+    echo "--- Tasks Completed ---" >&2
+    hexmem_select "SELECT id, title, substr(completed_at, 1, 10) as done
+                   FROM tasks 
+                   WHERE completed_at >= datetime('now', '-7 days')
+                   ORDER BY completed_at DESC
+                   LIMIT 10;"
+    
+    echo "" >&2
+    echo "--- Emotional Highlights ---" >&2
+    hexmem_select "SELECT id, substr(occurred_at, 1, 10) as date, summary,
+                          emotional_valence as val, emotional_arousal as aro
+                   FROM events 
+                   WHERE occurred_at >= datetime('now', '-7 days')
+                     AND (ABS(emotional_valence) > 0.3 OR emotional_arousal > 0.5)
+                   ORDER BY (ABS(emotional_valence) + emotional_arousal) DESC
+                   LIMIT 5;"
+}
+
+
+# ============================================================================
+# ONE-LINER EVENT LOGGING (Phase 3 Enhancement)
+# ============================================================================
+
+# Quick event logging shortcuts
+hexmem_decision() {
+    local summary="${1:?Usage: hexmem_decision \"summary\" [category] [details]}"
+    local category="${2:-general}"
+    local details="${3:-}"
+    hexmem_event "decision" "$category" "$summary" "$details"
+    echo "Decision logged." >&2
+}
+
+hexmem_error() {
+    local summary="${1:?Usage: hexmem_error \"summary\" [category] [details]}"
+    local category="${2:-system}"
+    local details="${3:-}"
+    hexmem_event "error" "$category" "$summary" "$details" 7  # Higher significance
+    echo "Error logged." >&2
+}
+
+hexmem_success() {
+    local summary="${1:?Usage: hexmem_success \"summary\" [category] [details]}"
+    local category="${2:-general}"
+    local details="${3:-}"
+    hexmem_event_emote "success" "$category" "$summary" 0.7 0.6 "$details"
+    echo "Success logged." >&2
+}
+
+hexmem_learning() {
+    local lesson="${1:?Usage: hexmem_learning \"lesson\" [domain] [context]}"
+    local domain="${2:-general}"
+    local context="${3:-}"
+    hexmem_lesson "$domain" "$lesson" "$context"
+    echo "Learning logged." >&2
 }
 
 
