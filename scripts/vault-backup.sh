@@ -10,7 +10,7 @@ set -euo pipefail
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DB="${HEXMEM_DB:-$HOME/clawd/hexmem/hexmem.db}"
 VAULT_DID="${HEXMEM_VAULT_DID:-}"
-VAULT_NAME="${HEXMEM_VAULT_NAME:-hexmem-vault}"
+VAULT_NAME="${HEXMEM_VAULT_NAME:-hex-vault}"
 
 ARCHON_DIR="$HOME/.config/hex/archon"
 
