@@ -433,9 +433,12 @@ This is sufficient for most use cases. For enhanced security (cryptographic sign
 
 ### Archon Integration (Optional)
 
-For cryptographically-signed, decentralized identity backups, optionally integrate with Archon. **HexMem does not require the archon-skill**; it uses `npx @didcid/keymaster` directly. The archon-skill is an optional convenience layer for local node operations.
+For cryptographically-signed, decentralized identity backups, optionally integrate with Archon. **HexMem does not require archon skills**; it uses `npx @didcid/keymaster` directly. The archon skills ([archetech/agent-skills](https://github.com/archetech/agent-skills)) provide convenience wrappers:
+- `archon-id` — Create/manage DIDs
+- `archon-backup` — Automated vault backups
+- `archon-crypto` — Encryption/signing
 
-**1. Check if Archon skill is available:**
+**1. Check if Keymaster is available:**
 
 ```bash
 # Use the helper (automatically checks)
@@ -445,7 +448,8 @@ hexmem_archon_check
 
 If not installed:
 ```bash
-clawhub skill install archon
+npm install -g @didcid/keymaster
+# Or use skills: clawhub skill install archon-id archon-backup
 ```
 
 **2. Set up Archon vault for hexmem:**
