@@ -461,7 +461,7 @@ Use the safe SQLite backup API (works even while the DB is in use):
 
 ### Archon Vault Backups (Optional)
 
-For cryptographically-signed, decentralized identity backups, you'll need Archon installed. **HexMem does not require the archon-skill**; it uses `npx @didcid/keymaster` directly. The archon-skill is an optional convenience layer for local node operations.
+For cryptographically-signed, decentralized identity backups, you'll need Archon installed. **HexMem does not require archon-keymaster**; it uses `npx @didcid/keymaster` directly. The `archon-keymaster` skill is an optional convenience layer for local operations.
 
 ### Reflector (Metabolic Loop)
 
@@ -473,7 +473,7 @@ Run a **daily Reflector** pass (agentic, not auto‑summarized) to distill the l
 See: `docs/REFLECTOR.md` and `memory/hexmem-reflector-prompt.md`.
 
 **Install Archon:**
-- **Public API only**: Install the [archon-skill](https://github.com/hexdaemon/archon-skill) for read-only DID resolution
+- **Skill convenience layer**: Install [archon-keymaster](https://github.com/archetech/agent-skills/tree/main/archon-keymaster) for DID/vault/crypto operations
 - **Full functionality (vaults, signing)**: Run a local Archon node from [github.com/archetech/archon](https://github.com/archetech/archon)
 
 Once Archon is configured:
@@ -588,7 +588,7 @@ HexMem is the **memory substrate** in the agent autonomy stack — where lessons
 | **hexswarm** | Agent coordination. Reads/writes HexMem for context and lessons. | [hexdaemon/hexswarm](https://github.com/hexdaemon/hexswarm) |
 | **hexmux** | Tmux fallback. Agents delegated via tmux can still write to HexMem. | [hexdaemon/hexmux](https://github.com/hexdaemon/hexmux) |
 | **hexmem** | Structured memory substrate. Identity, lessons, facts, events. | [hexdaemon/hexmem](https://github.com/hexdaemon/hexmem) |
-| **archon-skill** | Identity + vault operations. HexMem backs up here. | [hexdaemon/archon-skill](https://github.com/hexdaemon/archon-skill) |
+| **archon-keymaster** | Identity + vault + crypto operations. HexMem backs up here. | [archetech/agent-skills](https://github.com/archetech/agent-skills/tree/main/archon-keymaster) |
 
 ### Shell Helpers for Hexswarm
 
