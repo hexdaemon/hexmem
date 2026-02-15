@@ -4,6 +4,13 @@
  * Structured memory backend using HexMem SQLite database.
  * Replaces memory-core with direct HexMem queries.
  * Provides memory_search and memory_get tools compatible with OpenClaw's interface.
+ *
+ * ENHANCEMENTS (2026-02-15):
+ * 1. Smart agent_end: Extract facts + lessons from conversations
+ * 2. Decay/reinforcement: Memory maintenance system
+ * 3. Contradiction detection: Supersede conflicting facts
+ * 4. Proactive recall: Query-based context injection
+ * 5. Pattern detection: Auto-generate lessons from recurring events
  */
 
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
@@ -62,6 +69,18 @@ function sqliteQuery(dbPath: string, sql: string): string {
   }
 }
 
+function sqliteExec(dbPath: string, sql: string): void {
+  try {
+    execFileSync("sqlite3", [dbPath, sql], {
+      encoding: "utf-8",
+      timeout: 10000,
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new Error(`SQLite exec failed: ${msg}`);
+  }
+}
+
 function sqliteQueryRows<T>(dbPath: string, sql: string): T[] {
   const output = sqliteQuery(dbPath, sql);
   if (!output || output === "[]") return [];
@@ -74,6 +93,558 @@ function sqliteQueryRows<T>(dbPath: string, sql: string): T[] {
 
 function escapeSQL(str: string): string {
   return str.replace(/'/g, "''");
+}
+
+// ============================================================================
+// IMPROVEMENT 1: Smart Fact/Lesson Extraction Patterns
+// ============================================================================
+
+interface ExtractedFact {
+  subject: string;
+  predicate: string;
+  object: string;
+}
+
+interface ExtractedLesson {
+  domain: string;
+  lesson: string;
+  context: string;
+}
+
+// Patterns for extracting facts (subject/predicate/object triples)
+const FACT_PATTERNS: Array<{
+  regex: RegExp;
+  extract: (match: RegExpMatchArray) => ExtractedFact | null;
+}> = [
+  // "X is now Y" / "X changed to Y"
+  {
+    regex: /(?:the\s+)?(\w+(?:\s+\w+)?)\s+(?:is now|changed to|became|is currently)\s+(.+?)(?:\.|,|$)/gi,
+    extract: (m) => ({
+      subject: m[1].trim(),
+      predicate: "current_state",
+      object: m[2].trim(),
+    }),
+  },
+  // "X changed from Y to Z"
+  {
+    regex: /(\w+(?:\s+\w+)?)\s+changed\s+from\s+.+?\s+to\s+(.+?)(?:\.|,|$)/gi,
+    extract: (m) => ({
+      subject: m[1].trim(),
+      predicate: "current_state",
+      object: m[2].trim(),
+    }),
+  },
+  // "remember that X"
+  {
+    regex: /remember\s+that\s+(.+?)(?:\.|,|$)/gi,
+    extract: (m) => {
+      const content = m[1].trim();
+      // Try to parse "X is Y" within the remembered content
+      const isMatch = content.match(/^(\w+(?:\s+\w+)?)\s+(?:is|are|has|have)\s+(.+)$/i);
+      if (isMatch) {
+        return {
+          subject: isMatch[1].trim(),
+          predicate: "is",
+          object: isMatch[2].trim(),
+        };
+      }
+      return {
+        subject: "note",
+        predicate: "remember",
+        object: content,
+      };
+    },
+  },
+  // "X uses Y" / "X prefers Y"
+  {
+    regex: /(\w+(?:\s+\w+)?)\s+(uses|prefers|requires|needs|has|runs|connects to)\s+(.+?)(?:\.|,|$)/gi,
+    extract: (m) => ({
+      subject: m[1].trim(),
+      predicate: m[2].toLowerCase(),
+      object: m[3].trim(),
+    }),
+  },
+  // "my X is Y" / "the X is Y"
+  {
+    regex: /(?:my|the|our)\s+(\w+(?:\s+\w+)?)\s+(?:is|are)\s+(.+?)(?:\.|,|$)/gi,
+    extract: (m) => ({
+      subject: m[1].trim(),
+      predicate: "is",
+      object: m[2].trim(),
+    }),
+  },
+];
+
+// Patterns for extracting lessons
+const LESSON_PATTERNS: Array<{
+  regex: RegExp;
+  extract: (match: RegExpMatchArray) => ExtractedLesson | null;
+}> = [
+  // "learned that X" / "discovered that X"
+  {
+    regex: /(?:I\s+)?(?:learned|discovered|realized|found out)\s+that\s+(.+?)(?:\.|!|$)/gi,
+    extract: (m) => ({
+      domain: "general",
+      lesson: m[1].trim(),
+      context: "conversation",
+    }),
+  },
+  // "the issue was X" / "the problem was X"
+  {
+    regex: /the\s+(?:issue|problem|bug|error|cause)\s+was\s+(.+?)(?:\.|,|$)/gi,
+    extract: (m) => ({
+      domain: "debugging",
+      lesson: `Issue root cause: ${m[1].trim()}`,
+      context: "troubleshooting",
+    }),
+  },
+  // "turns out X"
+  {
+    regex: /turns\s+out\s+(?:that\s+)?(.+?)(?:\.|!|$)/gi,
+    extract: (m) => ({
+      domain: "general",
+      lesson: m[1].trim(),
+      context: "discovery",
+    }),
+  },
+  // "the fix was X" / "the solution was X"
+  {
+    regex: /the\s+(?:fix|solution|answer|resolution)\s+(?:was|is)\s+(.+?)(?:\.|,|$)/gi,
+    extract: (m) => ({
+      domain: "debugging",
+      lesson: `Solution: ${m[1].trim()}`,
+      context: "problem-solving",
+    }),
+  },
+  // "never do X" / "always do X"
+  {
+    regex: /(?:you\s+should\s+)?(?:never|always)\s+(.+?)(?:\.|!|$)/gi,
+    extract: (m) => ({
+      domain: "best-practices",
+      lesson: m[0].trim(),
+      context: "guidance",
+    }),
+  },
+  // "important: X" / "note: X"
+  {
+    regex: /(?:important|note|reminder|tip):\s*(.+?)(?:\.|!|$)/gi,
+    extract: (m) => ({
+      domain: "notes",
+      lesson: m[1].trim(),
+      context: "annotation",
+    }),
+  },
+];
+
+function extractFacts(text: string): ExtractedFact[] {
+  const facts: ExtractedFact[] = [];
+  for (const pattern of FACT_PATTERNS) {
+    let match: RegExpExecArray | null;
+    pattern.regex.lastIndex = 0; // Reset regex state
+    while ((match = pattern.regex.exec(text)) !== null) {
+      const fact = pattern.extract(match);
+      if (fact && fact.subject.length > 1 && fact.object.length > 1) {
+        // Avoid duplicates
+        const exists = facts.some(
+          (f) =>
+            f.subject.toLowerCase() === fact.subject.toLowerCase() &&
+            f.predicate === fact.predicate,
+        );
+        if (!exists) {
+          facts.push(fact);
+        }
+      }
+    }
+  }
+  return facts.slice(0, 5); // Limit to 5 facts per session
+}
+
+function extractLessons(text: string): ExtractedLesson[] {
+  const lessons: ExtractedLesson[] = [];
+  for (const pattern of LESSON_PATTERNS) {
+    let match: RegExpExecArray | null;
+    pattern.regex.lastIndex = 0;
+    while ((match = pattern.regex.exec(text)) !== null) {
+      const lesson = pattern.extract(match);
+      if (lesson && lesson.lesson.length > 5) {
+        const exists = lessons.some(
+          (l) => l.lesson.toLowerCase() === lesson.lesson.toLowerCase(),
+        );
+        if (!exists) {
+          lessons.push(lesson);
+        }
+      }
+    }
+  }
+  return lessons.slice(0, 3); // Limit to 3 lessons per session
+}
+
+// ============================================================================
+// IMPROVEMENT 3: Contradiction Detection Helper
+// ============================================================================
+
+interface ExistingFact {
+  id: number;
+  object_text: string;
+}
+
+function checkForContradiction(
+  dbPath: string,
+  subject: string,
+  predicate: string,
+): ExistingFact | null {
+  const subjectEsc = escapeSQL(subject.toLowerCase());
+  const predicateEsc = escapeSQL(predicate.toLowerCase());
+
+  const sql = `
+    SELECT id, object_text
+    FROM facts
+    WHERE status = 'active'
+      AND LOWER(COALESCE(subject_text, '')) = '${subjectEsc}'
+      AND LOWER(predicate) = '${predicateEsc}'
+    LIMIT 1
+  `;
+
+  const rows = sqliteQueryRows<ExistingFact>(dbPath, sql);
+  return rows.length > 0 ? rows[0] : null;
+}
+
+function supersedeFact(
+  dbPath: string,
+  oldFactId: number,
+  newObject: string,
+  source: string,
+): number {
+  const objectEsc = escapeSQL(newObject);
+  const sourceEsc = escapeSQL(source);
+
+  // Insert new fact based on old one
+  const insertSql = `
+    INSERT INTO facts (subject_entity_id, subject_text, predicate, object_text, source, status, last_accessed_at)
+    SELECT subject_entity_id, subject_text, predicate, '${objectEsc}', '${sourceEsc}', 'active', datetime('now')
+    FROM facts WHERE id = ${oldFactId}
+  `;
+  sqliteExec(dbPath, insertSql);
+
+  // Get the new fact ID
+  const newIdRows = sqliteQueryRows<{ id: number }>(
+    dbPath,
+    "SELECT last_insert_rowid() as id",
+  );
+  const newId = newIdRows[0]?.id ?? 0;
+
+  // Mark old fact as superseded
+  const updateSql = `
+    UPDATE facts
+    SET status = 'superseded',
+        superseded_by = ${newId},
+        valid_until = datetime('now'),
+        updated_at = datetime('now')
+    WHERE id = ${oldFactId}
+  `;
+  sqliteExec(dbPath, updateSql);
+
+  return newId;
+}
+
+function insertFact(
+  dbPath: string,
+  subject: string,
+  predicate: string,
+  object: string,
+  source: string,
+): void {
+  const subjectEsc = escapeSQL(subject);
+  const predicateEsc = escapeSQL(predicate);
+  const objectEsc = escapeSQL(object);
+  const sourceEsc = escapeSQL(source);
+
+  const sql = `
+    INSERT INTO facts (subject_text, predicate, object_text, source, status, last_accessed_at)
+    VALUES ('${subjectEsc}', '${predicateEsc}', '${objectEsc}', '${sourceEsc}', 'active', datetime('now'))
+  `;
+  sqliteExec(dbPath, sql);
+}
+
+function insertLesson(
+  dbPath: string,
+  domain: string,
+  lesson: string,
+  context: string,
+): void {
+  const domainEsc = escapeSQL(domain);
+  const lessonEsc = escapeSQL(lesson);
+  const contextEsc = escapeSQL(context);
+
+  const sql = `
+    INSERT INTO lessons (domain, lesson, context)
+    VALUES ('${domainEsc}', '${lessonEsc}', '${contextEsc}')
+  `;
+  sqliteExec(dbPath, sql);
+}
+
+// ============================================================================
+// IMPROVEMENT 2: Decay/Reinforcement System
+// ============================================================================
+
+function runMemoryMaintenance(dbPath: string, logger?: { info?: (msg: string) => void; warn?: (msg: string) => void }): string {
+  const results: string[] = [];
+
+  try {
+    // 1. Decay facts not accessed in >7 days (multiply strength by 0.95)
+    const decay7Sql = `
+      UPDATE facts
+      SET memory_strength = memory_strength * 0.95,
+          updated_at = datetime('now')
+      WHERE status = 'active'
+        AND last_accessed_at IS NOT NULL
+        AND JULIANDAY('now') - JULIANDAY(last_accessed_at) > 7
+        AND JULIANDAY('now') - JULIANDAY(last_accessed_at) <= 30
+    `;
+    sqliteExec(dbPath, decay7Sql);
+    const decay7Count = sqliteQueryRows<{ changes: number }>(dbPath, "SELECT changes() as changes")[0]?.changes ?? 0;
+    if (decay7Count > 0) {
+      results.push(`Decayed ${decay7Count} facts (7+ days, *0.95)`);
+    }
+
+    // 2. Decay facts not accessed in >30 days (multiply strength by 0.8)
+    const decay30Sql = `
+      UPDATE facts
+      SET memory_strength = memory_strength * 0.8,
+          updated_at = datetime('now')
+      WHERE status = 'active'
+        AND last_accessed_at IS NOT NULL
+        AND JULIANDAY('now') - JULIANDAY(last_accessed_at) > 30
+    `;
+    sqliteExec(dbPath, decay30Sql);
+    const decay30Count = sqliteQueryRows<{ changes: number }>(dbPath, "SELECT changes() as changes")[0]?.changes ?? 0;
+    if (decay30Count > 0) {
+      results.push(`Decayed ${decay30Count} facts (30+ days, *0.8)`);
+    }
+
+    // 3. Boost frequently accessed facts (access_count > 10, strength * 1.1, cap at 10.0)
+    const boostSql = `
+      UPDATE facts
+      SET memory_strength = MIN(10.0, memory_strength * 1.1),
+          updated_at = datetime('now')
+      WHERE status = 'active'
+        AND access_count > 10
+        AND memory_strength < 10.0
+    `;
+    sqliteExec(dbPath, boostSql);
+    const boostCount = sqliteQueryRows<{ changes: number }>(dbPath, "SELECT changes() as changes")[0]?.changes ?? 0;
+    if (boostCount > 0) {
+      results.push(`Boosted ${boostCount} frequently-accessed facts (*1.1)`);
+    }
+
+    // 4. Mark facts with memory_strength < 0.1 as decayed
+    const decaySql = `
+      UPDATE facts
+      SET status = 'decayed',
+          updated_at = datetime('now')
+      WHERE status = 'active'
+        AND memory_strength < 0.1
+    `;
+    sqliteExec(dbPath, decaySql);
+    const decayedCount = sqliteQueryRows<{ changes: number }>(dbPath, "SELECT changes() as changes")[0]?.changes ?? 0;
+    if (decayedCount > 0) {
+      results.push(`Marked ${decayedCount} weak facts as decayed`);
+    }
+
+    // Update last maintenance timestamp
+    const timestampSql = `
+      INSERT INTO kv_store (namespace, key, value, updated_at)
+      VALUES ('hexmem', 'last_maintenance', datetime('now'), datetime('now'))
+      ON CONFLICT(namespace, key) DO UPDATE SET value = datetime('now'), updated_at = datetime('now')
+    `;
+    sqliteExec(dbPath, timestampSql);
+
+    if (results.length === 0) {
+      results.push("No maintenance actions needed");
+    }
+
+    logger?.info?.(`memory-hexmem: maintenance complete - ${results.join(", ")}`);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    results.push(`Error: ${msg}`);
+    logger?.warn?.(`memory-hexmem: maintenance error - ${msg}`);
+  }
+
+  return results.join("\n");
+}
+
+function shouldRunMaintenance(dbPath: string): boolean {
+  try {
+    const sql = `
+      SELECT value FROM kv_store
+      WHERE namespace = 'hexmem' AND key = 'last_maintenance'
+    `;
+    const rows = sqliteQueryRows<{ value: string }>(dbPath, sql);
+    if (rows.length === 0) return true;
+
+    const lastRun = new Date(rows[0].value);
+    const now = new Date();
+    const hoursSinceRun = (now.getTime() - lastRun.getTime()) / (1000 * 60 * 60);
+    return hoursSinceRun >= 24; // Run once per day
+  } catch {
+    return true;
+  }
+}
+
+// ============================================================================
+// IMPROVEMENT 5: Pattern Detection
+// ============================================================================
+
+function detectAndRecordPatterns(dbPath: string, logger?: { info?: (msg: string) => void }): string {
+  const results: string[] = [];
+
+  try {
+    // Query events from last 7 days, group by category + event_type
+    const sql = `
+      SELECT category, event_type, COUNT(*) as count
+      FROM events
+      WHERE occurred_at >= datetime('now', '-7 days')
+      GROUP BY category, event_type
+      HAVING COUNT(*) >= 3
+      ORDER BY count DESC
+      LIMIT 5
+    `;
+    const patterns = sqliteQueryRows<{ category: string; event_type: string; count: number }>(dbPath, sql);
+
+    for (const pattern of patterns) {
+      const lessonText = `Recurring pattern: '${pattern.event_type}' happened ${pattern.count} times this week in category '${pattern.category}'`;
+
+      // Check if similar lesson already exists
+      const checkSql = `
+        SELECT id FROM lessons
+        WHERE domain = 'patterns'
+          AND lesson LIKE '%${escapeSQL(pattern.event_type)}%'
+          AND lesson LIKE '%${escapeSQL(pattern.category)}%'
+          AND created_at >= datetime('now', '-7 days')
+        LIMIT 1
+      `;
+      const existing = sqliteQueryRows<{ id: number }>(dbPath, checkSql);
+
+      if (existing.length === 0) {
+        insertLesson(dbPath, "patterns", lessonText, `Auto-detected from ${pattern.count} events`);
+        results.push(`Pattern: ${pattern.event_type}/${pattern.category} (${pattern.count}x)`);
+      }
+    }
+
+    // Update last pattern detection timestamp
+    const timestampSql = `
+      INSERT INTO kv_store (namespace, key, value, updated_at)
+      VALUES ('hexmem', 'last_pattern_detection', datetime('now'), datetime('now'))
+      ON CONFLICT(namespace, key) DO UPDATE SET value = datetime('now'), updated_at = datetime('now')
+    `;
+    sqliteExec(dbPath, timestampSql);
+
+    if (results.length > 0) {
+      logger?.info?.(`memory-hexmem: detected ${results.length} patterns`);
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    results.push(`Pattern detection error: ${msg}`);
+  }
+
+  return results.length > 0 ? results.join("\n") : "No new patterns detected";
+}
+
+function shouldRunPatternDetection(dbPath: string): boolean {
+  try {
+    const sql = `
+      SELECT value FROM kv_store
+      WHERE namespace = 'hexmem' AND key = 'last_pattern_detection'
+    `;
+    const rows = sqliteQueryRows<{ value: string }>(dbPath, sql);
+    if (rows.length === 0) return true;
+
+    const lastRun = new Date(rows[0].value);
+    const now = new Date();
+    const hoursSinceRun = (now.getTime() - lastRun.getTime()) / (1000 * 60 * 60);
+    return hoursSinceRun >= 24;
+  } catch {
+    return true;
+  }
+}
+
+// ============================================================================
+// IMPROVEMENT 4: Proactive Recall Helper
+// ============================================================================
+
+function proactiveRecall(dbPath: string, userMessage: string, limit = 3): string[] {
+  // Extract keywords from user message (simple word extraction)
+  const words = userMessage
+    .toLowerCase()
+    .replace(/[^\w\s]/g, " ")
+    .split(/\s+/)
+    .filter((w) => w.length > 3)
+    .slice(0, 5);
+
+  if (words.length === 0) return [];
+
+  const results: string[] = [];
+
+  // Search facts
+  for (const word of words) {
+    const wordEsc = escapeSQL(word);
+    const factsSql = `
+      SELECT COALESCE(subject_text, '') || ' ' || predicate || ' ' || COALESCE(object_text, '') as content
+      FROM facts
+      WHERE status = 'active'
+        AND (LOWER(subject_text) LIKE '%${wordEsc}%'
+             OR LOWER(object_text) LIKE '%${wordEsc}%'
+             OR LOWER(predicate) LIKE '%${wordEsc}%')
+      ORDER BY memory_strength DESC, last_accessed_at DESC NULLS LAST
+      LIMIT 2
+    `;
+    const facts = sqliteQueryRows<{ content: string }>(dbPath, factsSql);
+    for (const f of facts) {
+      if (f.content.trim() && !results.includes(f.content)) {
+        results.push(`[fact] ${f.content}`);
+      }
+    }
+  }
+
+  // Search lessons
+  for (const word of words) {
+    const wordEsc = escapeSQL(word);
+    const lessonsSql = `
+      SELECT '[' || domain || '] ' || lesson as content
+      FROM lessons
+      WHERE (valid_until IS NULL OR valid_until > datetime('now'))
+        AND (LOWER(lesson) LIKE '%${wordEsc}%' OR LOWER(context) LIKE '%${wordEsc}%')
+      ORDER BY confidence DESC, times_applied DESC
+      LIMIT 2
+    `;
+    const lessons = sqliteQueryRows<{ content: string }>(dbPath, lessonsSql);
+    for (const l of lessons) {
+      if (l.content.trim() && !results.includes(l.content)) {
+        results.push(`[lesson] ${l.content}`);
+      }
+    }
+  }
+
+  // Search recent events
+  for (const word of words) {
+    const wordEsc = escapeSQL(word);
+    const eventsSql = `
+      SELECT '[' || event_type || '/' || category || '] ' || summary as content
+      FROM events
+      WHERE LOWER(summary) LIKE '%${wordEsc}%'
+        AND occurred_at >= datetime('now', '-7 days')
+      ORDER BY occurred_at DESC
+      LIMIT 2
+    `;
+    const events = sqliteQueryRows<{ content: string }>(dbPath, eventsSql);
+    for (const e of events) {
+      if (e.content.trim() && !results.includes(e.content)) {
+        results.push(`[event] ${e.content}`);
+      }
+    }
+  }
+
+  return results.slice(0, limit);
 }
 
 // ============================================================================
@@ -111,7 +682,7 @@ function searchTable(
         SELECT id, domain, lesson, context, confidence
         FROM lessons
         WHERE LOWER(${contentField}) LIKE '%${escaped}%'
-           AND (status IS NULL OR status = 'active')
+           AND (valid_until IS NULL OR valid_until > datetime('now'))
         ORDER BY confidence DESC, created_at DESC
         LIMIT ${limit}
       `;
@@ -274,12 +845,12 @@ function memoryGet(
         const domain = escapeSQL(param);
         sql = `SELECT id, domain, lesson, confidence
                FROM lessons
-               WHERE domain = '${domain}' AND (status IS NULL OR status = 'active')
+               WHERE domain = '${domain}' AND (valid_until IS NULL OR valid_until > datetime('now'))
                ORDER BY confidence DESC LIMIT ${lines || 20}`;
       } else {
         sql = `SELECT id, domain, lesson, confidence
                FROM lessons
-               WHERE status IS NULL OR status = 'active'
+               WHERE valid_until IS NULL OR valid_until > datetime('now')
                ORDER BY confidence DESC LIMIT ${lines || 20}`;
       }
       break;
@@ -635,18 +1206,103 @@ const memoryHexmemPlugin = {
     );
 
     // ========================================================================
+    // IMPROVEMENT 2: memory_maintain tool
+    // ========================================================================
+    api.registerTool(
+      {
+        name: "memory_maintain",
+        label: "Memory Maintenance",
+        description:
+          "Run memory maintenance: decay old facts, boost frequently accessed ones, mark weak facts as decayed. Can be called manually or runs automatically once per day.",
+        parameters: Type.Object({}),
+        async execute(_toolCallId, _params) {
+          try {
+            const result = runMemoryMaintenance(dbPath, api.logger);
+            return {
+              content: [{ type: "text", text: `Memory maintenance complete:\n${result}` }],
+              details: { success: true },
+            };
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            return {
+              content: [{ type: "text", text: `Maintenance failed: ${msg}` }],
+              details: { error: msg },
+            };
+          }
+        },
+      },
+      { name: "memory_maintain" },
+    );
+
+    // ========================================================================
+    // IMPROVEMENT 5: memory_patterns tool
+    // ========================================================================
+    api.registerTool(
+      {
+        name: "memory_patterns",
+        label: "Memory Pattern Detection",
+        description:
+          "Detect recurring patterns in events from the last 7 days and auto-generate lessons. Patterns are event_types that occur 3+ times in a category.",
+        parameters: Type.Object({}),
+        async execute(_toolCallId, _params) {
+          try {
+            const result = detectAndRecordPatterns(dbPath, api.logger);
+            return {
+              content: [{ type: "text", text: `Pattern detection complete:\n${result}` }],
+              details: { success: true },
+            };
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            return {
+              content: [{ type: "text", text: `Pattern detection failed: ${msg}` }],
+              details: { error: msg },
+            };
+          }
+        },
+      },
+      { name: "memory_patterns" },
+    );
+
+    // ========================================================================
     // Lifecycle Hooks
     // ========================================================================
 
-    // Before agent start: inject context
+    // IMPROVEMENT 4: Enhanced before_agent_start with proactive recall
     const contextEnabled = cfg.contextInjection?.enabled ?? true;
     if (contextEnabled) {
-      api.on("before_agent_start", async (_event) => {
+      api.on("before_agent_start", async (event) => {
         try {
+          const sections: string[] = [];
+
+          // Standard context injection
           const context = buildContextInjection(dbPath, cfg.contextInjection);
           if (context) {
+            sections.push(context);
+          }
+
+          // IMPROVEMENT 2 & 5: Run periodic maintenance and pattern detection
+          if (shouldRunMaintenance(dbPath)) {
+            runMemoryMaintenance(dbPath, api.logger);
+          }
+          if (shouldRunPatternDetection(dbPath)) {
+            detectAndRecordPatterns(dbPath, api.logger);
+          }
+
+          // IMPROVEMENT 4: Proactive recall based on user message
+          // Check if there's a user message/prompt in the event
+          const userMessage = event.prompt || (event as Record<string, unknown>).userMessage as string | undefined;
+          if (userMessage && typeof userMessage === "string" && userMessage.length > 5) {
+            const recalled = proactiveRecall(dbPath, userMessage, 3);
+            if (recalled.length > 0) {
+              const recallContext = `<hexmem-recall>\n**Relevant memories for this query:**\n${recalled.map((r) => `- ${r}`).join("\n")}\n</hexmem-recall>`;
+              sections.push(recallContext);
+              api.logger.info?.(`memory-hexmem: proactively recalled ${recalled.length} items`);
+            }
+          }
+
+          if (sections.length > 0) {
             api.logger.info?.("memory-hexmem: injecting context");
-            return { prependContext: context };
+            return { prependContext: sections.join("\n\n") };
           }
         } catch (err) {
           api.logger.warn?.(
@@ -657,7 +1313,7 @@ const memoryHexmemPlugin = {
       });
     }
 
-    // Agent end: auto-capture
+    // IMPROVEMENT 1 & 3: Enhanced agent_end with fact/lesson extraction and contradiction detection
     const captureEnabled = cfg.autoCapture?.enabled ?? true;
     const minTurns = cfg.autoCapture?.minTurns ?? 2;
 
@@ -676,35 +1332,98 @@ const memoryHexmemPlugin = {
 
         if (userTurns < minTurns) return;
 
-        // Build summary from last user message
+        // Build combined text from conversation for analysis
+        let combinedText = "";
         let summary = "OpenClaw session";
+
         for (let i = messages.length - 1; i >= 0; i--) {
           const msg = messages[i] as Record<string, unknown>;
-          if (msg?.role === "user") {
-            const content = msg.content;
-            if (typeof content === "string") {
-              summary = content.slice(0, 200);
-              break;
-            }
-            if (Array.isArray(content)) {
-              for (const block of content) {
-                if (
-                  block &&
-                  typeof block === "object" &&
-                  (block as Record<string, unknown>).type === "text"
-                ) {
-                  summary = String(
-                    (block as Record<string, unknown>).text || "",
-                  ).slice(0, 200);
-                  break;
-                }
+          if (!msg) continue;
+
+          const content = msg.content;
+          let textContent = "";
+
+          if (typeof content === "string") {
+            textContent = content;
+          } else if (Array.isArray(content)) {
+            for (const block of content) {
+              if (
+                block &&
+                typeof block === "object" &&
+                (block as Record<string, unknown>).type === "text"
+              ) {
+                textContent += String((block as Record<string, unknown>).text || "") + " ";
               }
             }
-            break;
+          }
+
+          if (textContent) {
+            combinedText += textContent + "\n";
+            if (msg.role === "user" && summary === "OpenClaw session") {
+              summary = textContent.slice(0, 200);
+            }
           }
         }
 
         try {
+          // ================================================================
+          // IMPROVEMENT 1: Extract facts and lessons from conversation
+          // ================================================================
+          const extractedFacts = extractFacts(combinedText);
+          const extractedLessons = extractLessons(combinedText);
+
+          let factsInserted = 0;
+          let factsUpdated = 0;
+          let lessonsInserted = 0;
+
+          // Process extracted facts with contradiction detection
+          for (const fact of extractedFacts) {
+            // IMPROVEMENT 3: Check for contradictions
+            const existing = checkForContradiction(dbPath, fact.subject, fact.predicate);
+
+            if (existing) {
+              // Contradiction found - check if value actually differs
+              if (existing.object_text.toLowerCase() !== fact.object.toLowerCase()) {
+                supersedeFact(dbPath, existing.id, fact.object, "conversation-update");
+                factsUpdated++;
+                api.logger.info?.(
+                  `memory-hexmem: superseded fact ${existing.id}: "${fact.subject} ${fact.predicate}" changed from "${existing.object_text}" to "${fact.object}"`,
+                );
+              }
+              // If same value, skip (no change needed)
+            } else {
+              // No existing fact, insert new one
+              insertFact(dbPath, fact.subject, fact.predicate, fact.object, "conversation");
+              factsInserted++;
+            }
+          }
+
+          // Process extracted lessons (no contradiction detection needed, just avoid duplicates)
+          for (const lesson of extractedLessons) {
+            // Check for similar lesson
+            const checkSql = `
+              SELECT id FROM lessons
+              WHERE domain = '${escapeSQL(lesson.domain)}'
+                AND LOWER(lesson) = '${escapeSQL(lesson.lesson.toLowerCase())}'
+              LIMIT 1
+            `;
+            const existing = sqliteQueryRows<{ id: number }>(dbPath, checkSql);
+
+            if (existing.length === 0) {
+              insertLesson(dbPath, lesson.domain, lesson.lesson, lesson.context);
+              lessonsInserted++;
+            }
+          }
+
+          if (factsInserted > 0 || factsUpdated > 0 || lessonsInserted > 0) {
+            api.logger.info?.(
+              `memory-hexmem: extracted ${factsInserted} new facts, ${factsUpdated} updated, ${lessonsInserted} lessons`,
+            );
+          }
+
+          // ================================================================
+          // Original: Capture interaction summary
+          // ================================================================
           captureInteraction(dbPath, summary, userTurns);
           api.logger.info?.(`memory-hexmem: captured session (${userTurns} turns)`);
         } catch (err) {
