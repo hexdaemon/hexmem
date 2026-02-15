@@ -4,7 +4,23 @@
 
 HexMem is a SQLite-based persistent memory system designed for agent continuity, identity modeling, and self-knowledge. It provides structured storage for who you are, what you know, and who you're becoming.
 
-🔗 **[Install from ClawHub](https://www.clawhub.ai/santyr/skill-hexmem)** | 📦 **[GitHub](https://github.com/hexdaemon/hexmem)**
+📦 **[GitHub](https://github.com/hexdaemon/hexmem)**
+
+## 🔌 OpenClaw Plugin (Recommended)
+
+HexMem now ships as a **native OpenClaw memory plugin** that replaces the default `memory-core` plugin entirely. This is the recommended way to use HexMem — it provides automatic context injection, unified search, and session capture with zero manual queries.
+
+See [`openclaw-plugin/`](./openclaw-plugin/) for the plugin source and install instructions.
+
+```bash
+# Quick install
+cp -r openclaw-plugin/ <workspace>/.openclaw/extensions/memory-hexmem/
+# Set in ~/.openclaw/openclaw.json:
+# { "plugins": { "slots": { "memory": "memory-hexmem" } } }
+openclaw gateway restart
+```
+
+> **The standalone AgentSkill (`SKILL.md`) is deprecated.** It still works but requires manual queries and dual-system maintenance. The plugin handles reads automatically; the bundled skill covers the write API only.
 
 ## Philosophy
 

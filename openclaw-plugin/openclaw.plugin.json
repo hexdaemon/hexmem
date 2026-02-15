@@ -1,0 +1,69 @@
+{
+  "id": "memory-hexmem",
+  "kind": "memory",
+  "name": "Memory (HexMem)",
+  "description": "HexMem-backed structured memory with semantic search across events, lessons, facts, tasks, and identity",
+  "version": "1.0.0",
+  "skills": ["skills/hexmem"],
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "dbPath": {
+        "type": "string",
+        "description": "Path to hexmem.db (default: ~/clawd/hexmem/hexmem.db)"
+      },
+      "contextInjection": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "description": "Inject context on session start (default: true)"
+          },
+          "maxTasks": {
+            "type": "number",
+            "description": "Max pending tasks to inject (default: 5)"
+          },
+          "maxEvents": {
+            "type": "number",
+            "description": "Max recent events to inject (default: 3)"
+          },
+          "includeIdentity": {
+            "type": "boolean",
+            "description": "Include identity summary (default: true)"
+          }
+        }
+      },
+      "autoCapture": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "description": "Auto-capture session interactions (default: true)"
+          },
+          "minTurns": {
+            "type": "number",
+            "description": "Minimum turns to trigger capture (default: 2)"
+          }
+        }
+      }
+    }
+  },
+  "uiHints": {
+    "dbPath": {
+      "label": "HexMem Database Path",
+      "placeholder": "~/clawd/hexmem/hexmem.db",
+      "advanced": true
+    },
+    "contextInjection.enabled": {
+      "label": "Auto-inject Context",
+      "help": "Inject pending tasks, identity, and recent events at session start"
+    },
+    "autoCapture.enabled": {
+      "label": "Auto-capture Sessions",
+      "help": "Log interaction events for sessions with multiple turns"
+    }
+  }
+}
