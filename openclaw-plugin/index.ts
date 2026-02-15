@@ -1313,11 +1313,228 @@ const memoryHexmemPlugin = {
       });
     }
 
-    // IMPROVEMENT 1 & 3: Enhanced agent_end with fact/lesson extraction and contradiction detection
+    // IMPROVEMENT 6: Pre-compaction memory flush
+    // Fires before context is summarized/truncated — extracts facts and lessons
+    // from the conversation that's about to be compacted away.
     const captureEnabled = cfg.autoCapture?.enabled ?? true;
     const minTurns = cfg.autoCapture?.minTurns ?? 2;
 
     if (captureEnabled) {
+      api.on("before_compaction", async (event) => {
+        const messages = event.messages as unknown[];
+        if (!messages || !Array.isArray(messages)) return;
+
+        // Build text from messages about to be compacted
+        let combinedText = "";
+        for (const msg of messages) {
+          if (!msg || typeof msg !== "object") continue;
+          const m = msg as Record<string, unknown>;
+          const content = m.content;
+          let textContent = "";
+          if (typeof content === "string") {
+            textContent = content;
+          } else if (Array.isArray(content)) {
+            for (const block of content) {
+              if (
+                block &&
+                typeof block === "object" &&
+                (block as Record<string, unknown>).type === "text"
+              ) {
+                textContent += String((block as Record<string, unknown>).text || "") + " ";
+              }
+            }
+          }
+          if (textContent) combinedText += textContent + "\n";
+        }
+
+        if (combinedText.length < 200) return; // Too little content to extract from
+
+        try {
+          const extractedFacts = extractFacts(combinedText);
+          const extractedLessons = extractLessons(combinedText);
+
+          let factsInserted = 0;
+          let factsUpdated = 0;
+          let lessonsInserted = 0;
+
+          for (const fact of extractedFacts) {
+            const existing = checkForContradiction(dbPath, fact.subject, fact.predicate);
+            if (existing) {
+              if (existing.object_text.toLowerCase() !== fact.object.toLowerCase()) {
+                supersedeFact(dbPath, existing.id, fact.object, "pre-compaction-update");
+                factsUpdated++;
+              }
+            } else {
+              insertFact(dbPath, fact.subject, fact.predicate, fact.object, "pre-compaction");
+              factsInserted++;
+            }
+          }
+
+          for (const lesson of extractedLessons) {
+            const checkSql = `
+              SELECT id FROM lessons
+              WHERE domain = '${escapeSQL(lesson.domain)}'
+                AND LOWER(lesson) = '${escapeSQL(lesson.lesson.toLowerCase())}'
+              LIMIT 1
+            `;
+            const existing = sqliteQueryRows<{ id: number }>(dbPath, checkSql);
+            if (existing.length === 0) {
+              insertLesson(dbPath, lesson.domain, lesson.lesson, lesson.context);
+              lessonsInserted++;
+            }
+          }
+
+          if (factsInserted > 0 || factsUpdated > 0 || lessonsInserted > 0) {
+            api.logger.info?.(
+              `memory-hexmem: pre-compaction flush — ${factsInserted} new facts, ${factsUpdated} updated, ${lessonsInserted} lessons`,
+            );
+          }
+        } catch (err) {
+          api.logger.warn?.(`memory-hexmem: pre-compaction flush failed: ${String(err)}`);
+        }
+      });
+
+      // IMPROVEMENT 7: before_reset — flush memories before /new or /reset wipes everything
+      api.on("before_reset", async (event) => {
+        const messages = event.messages as unknown[];
+        if (!messages || !Array.isArray(messages)) return;
+
+        let combinedText = "";
+        for (const msg of messages) {
+          if (!msg || typeof msg !== "object") continue;
+          const m = msg as Record<string, unknown>;
+          const content = m.content;
+          let textContent = "";
+          if (typeof content === "string") {
+            textContent = content;
+          } else if (Array.isArray(content)) {
+            for (const block of content) {
+              if (block && typeof block === "object" && (block as Record<string, unknown>).type === "text") {
+                textContent += String((block as Record<string, unknown>).text || "") + " ";
+              }
+            }
+          }
+          if (textContent) combinedText += textContent + "\n";
+        }
+
+        if (combinedText.length < 200) return;
+
+        try {
+          const extractedFacts = extractFacts(combinedText);
+          const extractedLessons = extractLessons(combinedText);
+          let factsInserted = 0;
+          let factsUpdated = 0;
+          let lessonsInserted = 0;
+
+          for (const fact of extractedFacts) {
+            const existing = checkForContradiction(dbPath, fact.subject, fact.predicate);
+            if (existing) {
+              if (existing.object_text.toLowerCase() !== fact.object.toLowerCase()) {
+                supersedeFact(dbPath, existing.id, fact.object, "pre-reset-update");
+                factsUpdated++;
+              }
+            } else {
+              insertFact(dbPath, fact.subject, fact.predicate, fact.object, "pre-reset");
+              factsInserted++;
+            }
+          }
+
+          for (const lesson of extractedLessons) {
+            const checkSql = `
+              SELECT id FROM lessons
+              WHERE domain = '${escapeSQL(lesson.domain)}'
+                AND LOWER(lesson) = '${escapeSQL(lesson.lesson.toLowerCase())}'
+              LIMIT 1
+            `;
+            const existing = sqliteQueryRows<{ id: number }>(dbPath, checkSql);
+            if (existing.length === 0) {
+              insertLesson(dbPath, lesson.domain, lesson.lesson, lesson.context);
+              lessonsInserted++;
+            }
+          }
+
+          if (factsInserted > 0 || factsUpdated > 0 || lessonsInserted > 0) {
+            api.logger.info?.(
+              `memory-hexmem: pre-reset flush — ${factsInserted} new facts, ${factsUpdated} updated, ${lessonsInserted} lessons`,
+            );
+          }
+        } catch (err) {
+          api.logger.warn?.(`memory-hexmem: pre-reset flush failed: ${String(err)}`);
+        }
+      });
+
+      // IMPROVEMENT 8: after_compaction — log that compaction occurred for pattern tracking
+      api.on("after_compaction", async (_event) => {
+        try {
+          const eventSql = `INSERT INTO events (event_type, category, summary, significance)
+                            VALUES ('compaction', 'openclaw', 'Context compaction occurred — conversation history was summarized and truncated', 3)`;
+          sqliteExec(dbPath, eventSql);
+          api.logger.info?.("memory-hexmem: logged compaction event");
+        } catch (err) {
+          api.logger.warn?.(`memory-hexmem: after_compaction log failed: ${String(err)}`);
+        }
+      });
+
+      // IMPROVEMENT 9: message_received — track interaction patterns (batched, not every message)
+      let messageReceivedCount = 0;
+      let lastMessageBatchLog = 0;
+      const MESSAGE_BATCH_INTERVAL = 300000; // 5 minutes
+
+      api.on("message_received", async (_event) => {
+        messageReceivedCount++;
+        const now = Date.now();
+
+        // Batch: only log to HexMem every 5 minutes to avoid noise
+        if (now - lastMessageBatchLog < MESSAGE_BATCH_INTERVAL) return;
+
+        try {
+          const escaped = escapeSQL(
+            `Received ${messageReceivedCount} messages in the last ${Math.round((now - (lastMessageBatchLog || now - 60000)) / 60000)} minutes`
+          );
+          const sql = `INSERT INTO events (event_type, category, summary, significance)
+                       VALUES ('interaction_batch', 'openclaw', '${escaped}', 2)`;
+          sqliteExec(dbPath, sql);
+          messageReceivedCount = 0;
+          lastMessageBatchLog = now;
+        } catch {
+          /* ignore — low priority */
+        }
+      });
+
+      // IMPROVEMENT 10: after_tool_call — track tool usage patterns (batched per tool name)
+      const toolCallCounts: Record<string, number> = {};
+      let lastToolBatchLog = 0;
+      const TOOL_BATCH_INTERVAL = 600000; // 10 minutes
+
+      api.on("after_tool_call", async (event) => {
+        const toolName = String((event as Record<string, unknown>).toolName ?? (event as Record<string, unknown>).tool ?? "unknown");
+        toolCallCounts[toolName] = (toolCallCounts[toolName] || 0) + 1;
+        const now = Date.now();
+
+        if (now - lastToolBatchLog < TOOL_BATCH_INTERVAL) return;
+
+        try {
+          // Summarize tool usage
+          const entries = [];
+          for (const key of Object.keys(toolCallCounts)) {
+            entries.push(`${key}:${toolCallCounts[key]}`);
+          }
+          const summary = escapeSQL(`Tool usage: ${entries.join(", ")}`);
+          const sql = `INSERT INTO events (event_type, category, summary, significance)
+                       VALUES ('tool_usage', 'openclaw', '${summary}', 2)`;
+          sqliteExec(dbPath, sql);
+
+          // Reset counters
+          for (const key of Object.keys(toolCallCounts)) {
+            delete toolCallCounts[key];
+          }
+          lastToolBatchLog = now;
+        } catch {
+          /* ignore — low priority */
+        }
+      });
+
+      // IMPROVEMENT 1 & 3: Enhanced agent_end with fact/lesson extraction and contradiction detection
       api.on("agent_end", async (event) => {
         if (!event.success) return;
 
