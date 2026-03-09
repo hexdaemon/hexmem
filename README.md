@@ -329,6 +329,154 @@ Source with `source hexmem.sh`. All helpers available:
 | `hexmem_decay [--apply]` | Process memory decay |
 | `hexmem_retention <id>` | Check event retention |
 
+### Decision Tracking (NEW)
+
+| Helper | Usage |
+|--------|-------|
+| `hexmem_decision <type> <action> <alias> <reasoning> [review_days]` | Log a decision with outcome review |
+| `hexmem_review_lesson <id> <true\|false>` | Spaced repetition: confirm or contradict a lesson |
+| `hexmem_expire_lesson <id> [reason]` | Mark a lesson as expired/superseded |
+
+### FTS5 Full-Text Search (NEW)
+
+HexMem now includes FTS5 full-text search indexes on all major tables. The OpenClaw plugin uses these for ranked retrieval instead of naive LIKE matching.
+
+**Tables indexed:** `facts_fts`, `events_fts`, `lessons_fts`, `tasks_fts`, `interactions_fts`, `seeds_fts`, `decisions_fts`
+
+Auto-sync triggers keep indexes current on insert/update/delete. To rebuild manually:
+
+```bash
+sqlite3 ~/clawd/hexmem/hexmem.db "INSERT INTO facts_fts(facts_fts) VALUES('rebuild');"
+```
+
+### Domain-Tagged Facts (NEW)
+
+Facts now support an optional `domain` column for biased retrieval:
+
+```bash
+# Auto-classify existing facts
+sqlite3 ~/clawd/hexmem/hexmem.db "
+UPDATE facts SET domain = 'fleet'
+WHERE status = 'active' AND domain IS NULL
+  AND (lower(subject_text) LIKE '%channel%' OR lower(subject_text) LIKE '%node%');
+"
+```
+
+Supported domains: `fleet`, `identity`, `security`, `infrastructure`, `code`, `social`
+
+### Entity Graph (NEW)
+
+Entities and relationships model the knowledge graph backbone. Facts link to entities via `subject_entity_id` for graph traversal:
+
+```bash
+# Create an entity
+hexmem_entity "project" "MyProject" "My cool project"
+
+# Link facts to entities
+sqlite3 ~/clawd/hexmem/hexmem.db "
+UPDATE facts SET subject_entity_id = (SELECT id FROM entities WHERE canonical_name = 'myproject')
+WHERE lower(subject_text) = 'myproject' AND status = 'active';
+"
+
+# Query entity relationships
+sqlite3 ~/clawd/hexmem/hexmem.db "
+SELECT e1.name, r.relationship_type, e2.name
+FROM relationships r
+JOIN entities e1 ON r.from_entity_id = e1.id
+JOIN entities e2 ON r.to_entity_id = e2.id;
+"
+```
+
+## Suggested Cron Jobs
+
+HexMem benefits from periodic maintenance. Here are recommended cron configurations:
+
+### Goal Progress Tracking (every 6 hours)
+
+Updates goal progress from live fleet data. Customize the script for your metrics source.
+
+```bash
+# crontab -e
+0 */6 * * * ~/clawd/scripts/hexmem-goal-progress.sh >> /tmp/hexmem-goals.log 2>&1
+```
+
+Or via OpenClaw cron:
+```json
+{
+  "name": "hexmem-goal-progress",
+  "schedule": {"kind": "every", "everyMs": 21600000},
+  "payload": {"kind": "systemEvent", "text": "Run goal progress update: ~/clawd/scripts/hexmem-goal-progress.sh"},
+  "sessionTarget": "main"
+}
+```
+
+### Weekly Maintenance (Sundays 3 PM)
+
+Compresses old events into seeds, runs decay/boost, reviews lessons and decisions, rebuilds FTS indexes.
+
+```bash
+# crontab -e
+0 15 * * 0 ~/clawd/scripts/hexmem-weekly-maintenance.sh >> /tmp/hexmem-maintenance.log 2>&1
+```
+
+Or via OpenClaw cron:
+```json
+{
+  "name": "hexmem-weekly-maintenance",
+  "schedule": {"kind": "cron", "expr": "0 15 * * 0", "tz": "America/Denver"},
+  "payload": {"kind": "agentTurn", "message": "Run weekly HexMem maintenance and report results.", "timeoutSeconds": 300},
+  "sessionTarget": "isolated",
+  "delivery": {"mode": "announce"}
+}
+```
+
+### Event Compression (daily or weekly)
+
+Compresses auto-logged OpenClaw events older than 7 days into daily summary seeds.
+
+```bash
+# crontab -e
+0 3 * * * ~/clawd/scripts/hexmem-compress-events.sh >> /tmp/hexmem-compress.log 2>&1
+```
+
+### Decision Outcome Review (daily)
+
+Checks for decisions that are due for outcome review (30 days after the decision was made).
+
+```bash
+# crontab -e
+0 9 * * * ~/clawd/scripts/hexmem-decision-review.sh
+```
+
+### Lesson Spaced Repetition Review (daily)
+
+Surfaces lessons due for re-evaluation based on spaced repetition intervals.
+
+```bash
+# crontab -e
+0 9 * * * ~/clawd/scripts/hexmem-lesson-review.sh
+```
+
+### Self-Reflection (weekly or monthly)
+
+Reports on goal progress, schema freshness, memory health, and future selves.
+
+```bash
+# crontab -e
+0 15 * * 5 ~/clawd/scripts/hexmem-self-reflect.sh >> /tmp/hexmem-reflect.log 2>&1
+```
+
+### Maintenance Scripts Reference
+
+| Script | Purpose | Suggested Schedule |
+|--------|---------|-------------------|
+| `hexmem-goal-progress.sh` | Update goal progress from live data | Every 6h |
+| `hexmem-weekly-maintenance.sh` | Full maintenance cycle (compress, decay, review, rebuild FTS) | Weekly |
+| `hexmem-compress-events.sh` | Compress old auto-events into daily seeds | Daily/Weekly |
+| `hexmem-decision-review.sh` | Check decisions needing outcome review | Daily |
+| `hexmem-lesson-review.sh` | Surface lessons due for spaced repetition | Daily |
+| `hexmem-self-reflect.sh` | Self-reflection report (goals, schemas, health) | Weekly |
+
 ## Comparison with MoltBrain
 
 [MoltBrain](https://github.com/nhevers/MoltBrain) is a project memory system for Claude Code / OpenClaw. Here's how they differ:
@@ -346,14 +494,21 @@ They're complementary — MoltBrain for automatic observation, HexMem for identi
 
 ## Roadmap
 
-Features inspired by MoltBrain and planned for HexMem:
-
 - [x] **Semantic search** via sqlite-vec ([#1](https://github.com/hexdaemon/hexmem/issues/1)) ✅
 - [x] **Session lifecycle hooks** for automatic capture ([#2](https://github.com/hexdaemon/hexmem/issues/2)) ✅
 - [ ] **Web viewer** for browsing memories ([#3](https://github.com/hexdaemon/hexmem/issues/3))
 - [x] **Ebbinghaus forgetting curve** with spaced repetition ([#4](https://github.com/hexdaemon/hexmem/issues/4)) ✅
-- [ ] **Context injection** at session start
+- [x] **Context injection** at session start ✅ (domain-aware, smart injection)
 - [ ] **MCP server** for tool-based access
+- [x] **FTS5 full-text search** — ranked retrieval replacing LIKE matching ✅
+- [x] **Domain-tagged facts** — domain classification + biased recall ✅
+- [x] **Entity graph enrichment** — canonical entities with relationship traversal ✅
+- [x] **Decision tracking** — structured decisions with outcome review ✅
+- [x] **Event compression** — auto-compress noise events into daily seeds ✅
+- [x] **Access tracking** — fact access counts feed decay/boost system ✅
+- [ ] **Embedding-based vector search** — populate vec_* tables from local model
+- [ ] **Contradiction detection** — fuzzy matching for conflicting facts
+- [ ] **Lesson consolidation** — auto-merge similar lessons
 
 ## Semantic Search
 

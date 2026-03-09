@@ -2022,3 +2022,80 @@ hs() {
     "$HEXSWARM_DIR/bin/hs" "$@"
 }
 
+# Hybrid router wrapper (OpenClaw subagents vs hexswarm)
+# Usage:
+#   hsr code "refactor storage module"
+#   hsr --force hexswarm --execute research "overnight paper sweep"
+hsr() {
+    /home/sat/clawd/scripts/delegate-router.sh "$@"
+}
+
+# Spaced repetition: mark a lesson as reviewed and schedule next review
+# Usage: hexmem_review_lesson <id> <still_valid: true|false>
+hexmem_review_lesson() {
+  local id="$1"
+  local valid="${2:-true}"
+  local DB="$HOME/clawd/hexmem/hexmem.db"
+
+  if [ "$valid" = "true" ]; then
+    # Lesson confirmed: increase interval (Leitner box advance)
+    # Interval doubles each successful review: 7 -> 14 -> 28 -> 56 -> 112 days
+    sqlite3 "$DB" "
+    UPDATE lessons SET
+      times_validated = times_validated + 1,
+      confidence = MIN(1.0, confidence + 0.05),
+      retention_estimate = MIN(1.0, retention_estimate + 0.1),
+      last_reviewed_at = datetime('now'),
+      next_review_at = datetime('now', '+' || MAX(7, MIN(112, 7 * POWER(2, times_validated))) || ' days'),
+      updated_at = datetime('now')
+    WHERE id = $id;
+    "
+    echo "Lesson #$id confirmed. Next review scheduled."
+  else
+    # Lesson contradicted: reset to short interval
+    sqlite3 "$DB" "
+    UPDATE lessons SET
+      times_contradicted = times_contradicted + 1,
+      confidence = MAX(0.1, confidence - 0.15),
+      retention_estimate = MAX(0.2, retention_estimate - 0.2),
+      last_reviewed_at = datetime('now'),
+      next_review_at = datetime('now', '+3 days'),
+      updated_at = datetime('now')
+    WHERE id = $id;
+    "
+    echo "Lesson #$id contradicted. Review again in 3 days."
+  fi
+}
+
+# Mark a lesson as superseded/expired
+# Usage: hexmem_expire_lesson <id> [reason]
+hexmem_expire_lesson() {
+  local id="$1"
+  local reason="${2:-manually expired}"
+  local DB="$HOME/clawd/hexmem/hexmem.db"
+  sqlite3 "$DB" "
+  UPDATE lessons SET valid_until = datetime('now'), updated_at = datetime('now')
+  WHERE id = $id;
+  "
+  echo "Lesson #$id expired: $reason"
+}
+
+# Log a fleet decision for outcome tracking
+# Usage: hexmem_decision <type> <action> <target_alias> <reasoning> [review_days]
+hexmem_decision() {
+  local dtype="$1"
+  local action="$2"
+  local alias="$3"
+  local reasoning="$4"
+  local review_days="${5:-30}"
+  local DB="$HOME/clawd/hexmem/hexmem.db"
+
+  local reas_esc=$(echo "$reasoning" | sed "s/'/''/g")
+  local alias_esc=$(echo "$alias" | sed "s/'/''/g")
+
+  sqlite3 "$DB" "
+  INSERT INTO decisions (decision_type, action, target_alias, reasoning, review_at)
+  VALUES ('$dtype', '$action', '$alias_esc', '$reas_esc', datetime('now', '+$review_days days'));
+  "
+  echo "Decision logged: $action $alias (review in $review_days days)"
+}
